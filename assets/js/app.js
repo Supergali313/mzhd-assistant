@@ -420,6 +420,176 @@
     $('#' + id).addEventListener('input', calc);
   });
 
+  /* ---------------- Консультации ---------------- */
+  var qaCat = 'all';
+
+  function catTitle(id) {
+    var c = window.QA_CATEGORIES.filter(function (x) { return x.id === id; })[0];
+    return c ? c.title : id;
+  }
+
+  function buildChips() {
+    var chips = [{ id: 'all', title: 'Все вопросы' }].concat(window.QA_CATEGORIES);
+    $('#qaChips').innerHTML = chips.map(function (c) {
+      var n = c.id === 'all'
+        ? window.QA_ITEMS.length
+        : window.QA_ITEMS.filter(function (i) { return i.cat === c.id; }).length;
+      return '<button type="button" class="chip' + (qaCat === c.id ? ' is-active' : '') +
+        '" data-cat="' + c.id + '">' + H.esc(c.title) + ' <span class="muted">' + n + '</span></button>';
+    }).join('');
+
+    $$('.chip', $('#qaChips')).forEach(function (b) {
+      b.addEventListener('click', function () {
+        qaCat = b.dataset.cat;
+        buildChips();
+        buildQA($('#qaSearch').value);
+      });
+    });
+  }
+
+  function qaMatches(item, q) {
+    if (!q) return true;
+    var hay = [item.q, item.short, item.caution, (item.steps || []).join(' '), (item.basis || []).join(' ')]
+      .join(' ').toLowerCase();
+    return q.split(/\s+/).filter(Boolean).every(function (w) { return hay.indexOf(w) > -1; });
+  }
+
+  function buildQA(filter) {
+    var q = (filter || '').trim().toLowerCase();
+    var items = window.QA_ITEMS.filter(function (i) {
+      return (qaCat === 'all' || i.cat === qaCat) && qaMatches(i, q);
+    });
+
+    $('#qaCount').textContent = items.length
+      ? 'Показано вопросов: ' + items.length + ' из ' + window.QA_ITEMS.length
+      : '';
+
+    if (!items.length) {
+      $('#qaList').innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>' +
+        '<h2>По этому запросу ничего нет</h2>' +
+        '<p>Сформулируйте вопрос в блоке ниже — приложение соберёт его вместе с реквизитами дома и передаст Claude.</p></div>';
+      return;
+    }
+
+    $('#qaList').innerHTML = items.map(function (item) {
+      var idx = window.QA_ITEMS.indexOf(item);
+      var docs = (item.docs || []).map(function (id) {
+        var t = window.DOC_TEMPLATES.filter(function (x) { return x.id === id; })[0];
+        return t ? '<button type="button" class="btn btn-sm" data-open-doc="' + id + '">' + H.esc(t.title) + '</button>' : '';
+      }).join('');
+
+      return '<details class="qa"><summary><span class="qa-tag">' + H.esc(catTitle(item.cat)) + '</span>' +
+        H.esc(item.q) + '</summary><div class="qa-body">' +
+        '<p class="qa-short">' + H.esc(item.short) + '</p>' +
+        (item.steps && item.steps.length
+          ? '<h4>Порядок действий</h4><ol>' + item.steps.map(function (s) { return '<li>' + H.esc(s) + '</li>'; }).join('') + '</ol>'
+          : '') +
+        (item.basis && item.basis.length
+          ? '<h4>На что опереться</h4><ul>' + item.basis.map(function (s) { return '<li>' + H.esc(s) + '</li>'; }).join('') + '</ul>'
+          : '') +
+        (item.caution ? '<div class="qa-caution">⚠️ ' + H.esc(item.caution) + '</div>' : '') +
+        '<div class="qa-foot">' +
+        (docs ? '<span class="label">Документы:</span>' + docs : '') +
+        '<button type="button" class="btn btn-sm" data-ask="' + idx + '" style="margin-left:auto">Уточнить у Claude ↗</button>' +
+        '</div></div></details>';
+    }).join('');
+
+    $$('[data-open-doc]', $('#qaList')).forEach(function (b) {
+      b.addEventListener('click', function () {
+        showView('docs');
+        openDoc(b.dataset.openDoc);
+      });
+    });
+
+    $$('[data-ask]', $('#qaList')).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var item = window.QA_ITEMS[Number(b.dataset.ask)];
+        $('#askQuestion').value = item.q;
+        renderAsk();
+        $('#askCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('#askContext').focus();
+      });
+    });
+  }
+
+  $('#qaSearch').addEventListener('input', function () { buildQA(this.value); });
+
+  /* --- Сборка запроса для Claude --- */
+  var PROFILE_LABELS = {
+    orgForm: 'Форма управления', orgName: 'Наименование', bin: 'БИН', address: 'Адрес дома',
+    totalArea: 'Общая полезная площадь дома, м²', units: 'Количество помещений',
+    chairman: 'Председатель', manager: 'Управляющий'
+  };
+
+  function buildPrompt() {
+    var question = ($('#askQuestion').value || '').trim();
+    var context = ($('#askContext').value || '').trim();
+
+    var parts = ['Ты — ассистент управляющего многоквартирным жилым домом в Республике Казахстан (ОСИ, КСК, простое товарищество). Отвечай применительно к законодательству РК.'];
+
+    parts.push('\nВОПРОС\n' + (question || '[сформулируйте вопрос]'));
+
+    if (context) parts.push('\nОБСТОЯТЕЛЬСТВА\n' + context);
+
+    if ($('#askIncludeProfile').checked) {
+      var lines = Object.keys(PROFILE_LABELS)
+        .filter(function (k) { return (profile[k] || '').toString().trim(); })
+        .map(function (k) { return '- ' + PROFILE_LABELS[k] + ': ' + profile[k]; });
+      if (lines.length) parts.push('\nРЕКВИЗИТЫ ДОМА\n' + lines.join('\n'));
+    }
+
+    var rules = [
+      '- Официально-деловой стиль, по существу, на «вы».',
+      '- Ссылайся на конкретный закон и статью. Если не уверен в номере или в действующей редакции — скажи об этом прямо и не выдумывай реквизиты.',
+      '- Предупреди, что законодательство и типовые формы могли измениться, и порекомендуй сверить редакцию на adilet.zan.kz.',
+      '- Если ситуация спорная или судебная — укажи, что нужен юрист.',
+      '- Проверь арифметику, если в ответе есть суммы, доли голосов или кворум.',
+      '- Недостающие данные обозначай как ___ или [указать], не придумывай их.'
+    ];
+    if ($('#askWantDoc').checked) {
+      rules.push('- Подготовь готовый документ в официально-деловом стиле и выдай его файлом Word.');
+    }
+    parts.push('\nКАК ОТВЕЧАТЬ\n' + rules.join('\n'));
+
+    return parts.join('\n');
+  }
+
+  function renderAsk() {
+    if (!$('#askPreview').hidden) $('#askPreview').textContent = buildPrompt();
+  }
+
+  ['askQuestion', 'askContext', 'askIncludeProfile', 'askWantDoc'].forEach(function (id) {
+    $('#' + id).addEventListener('input', renderAsk);
+    $('#' + id).addEventListener('change', renderAsk);
+  });
+
+  $('#btnAskToggle').addEventListener('click', function () {
+    var pre = $('#askPreview');
+    pre.hidden = !pre.hidden;
+    this.textContent = pre.hidden ? 'Показать запрос' : 'Скрыть запрос';
+    renderAsk();
+  });
+
+  $('#btnAskCopy').addEventListener('click', function () {
+    copyText(buildPrompt(), 'Запрос скопирован — вставьте его в чат с Claude');
+  });
+
+  $('#btnAskClaude').addEventListener('click', function () {
+    if (!($('#askQuestion').value || '').trim()) {
+      toast('Сначала сформулируйте вопрос');
+      $('#askQuestion').focus();
+      return;
+    }
+    var prompt = buildPrompt();
+    var url = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+    if (url.length > 7500) {
+      copyText(prompt, 'Запрос длинный — он скопирован, вставьте его в чат');
+      window.open('https://claude.ai/new', '_blank', 'noopener');
+      return;
+    }
+    window.open(url, '_blank', 'noopener');
+  });
+
   /* ---------------- Правовая база ---------------- */
   function buildLegal() {
     $('#legalList').innerHTML = window.LEGAL_BASE.map(function (l) {
@@ -449,12 +619,15 @@
       return '<li>' + H.esc(t.title) + ' <span class="muted">— ' + H.esc(t.group) + '</span></li>';
     }).join('');
     $$('.doc-count').forEach(function (el) { el.textContent = window.DOC_TEMPLATES.length; });
+    $$('.qa-total').forEach(function (el) { el.textContent = window.QA_ITEMS.length; });
   }
 
   /* ---------------- Старт ---------------- */
   buildProfileForm();
   updateHouseChip();
   buildDocList('');
+  buildChips();
+  buildQA('');
   buildLegal();
   buildInstruction();
   buildAbout();
