@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ассистент управляющего МЖД — документы и правовая база (РК)</title>
+<meta name="description" content="Рабочее место управляющего многоквартирным жилым домом в Казахстане: генератор документов ОСИ/КСК/ПТ, расчёт кворума и голосов, правовая база, инструкция для Claude Project.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Перейти к содержимому</a>
+
+<header class="topbar">
+  <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">🏢</span>
+    <span class="brand-text">
+      <strong>Ассистент управляющего МЖД</strong>
+      <small>ОСИ · КСК · Простое товарищество — Республика Казахстан</small>
+    </span>
+  </div>
+  <div class="topbar-right">
+    <span class="house-chip" id="houseChip" title="Текущий дом (раздел «Реквизиты дома»)">Реквизиты не заполнены</span>
+    <button class="icon-btn" id="themeBtn" aria-label="Сменить тему" title="Светлая / тёмная тема">◐</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar" aria-label="Разделы">
+    <button class="nav-item is-active" data-view="docs"><span aria-hidden="true">📄</span> Документы</button>
+    <button class="nav-item" data-view="profile"><span aria-hidden="true">🏠</span> Реквизиты дома</button>
+    <button class="nav-item" data-view="calc"><span aria-hidden="true">🧮</span> Кворум и голоса</button>
+    <button class="nav-item" data-view="legal"><span aria-hidden="true">⚖️</span> Правовая база</button>
+    <button class="nav-item" data-view="assistant"><span aria-hidden="true">🤖</span> Инструкция для Claude</button>
+    <button class="nav-item" data-view="about"><span aria-hidden="true">ℹ️</span> О продукте</button>
+    <div class="sidebar-foot">
+      <p>Данные хранятся только в вашем браузере (localStorage). Ничего не отправляется на сервер.</p>
+    </div>
+  </nav>
+
+  <main id="main" class="content">
+
+    <!-- ДОКУМЕНТЫ -->
+    <section class="view is-active" id="view-docs">
+      <div class="view-head">
+        <h1>Документы дома</h1>
+        <p class="lede">Заполните поля — получите готовый документ официально-делового стиля. Пустые поля подставляются как «___», чтобы дозаполнить вручную.</p>
+      </div>
+
+      <div class="doc-layout">
+        <aside class="doc-list-pane">
+          <input type="search" id="docSearch" class="search" placeholder="Поиск документа…" aria-label="Поиск документа">
+          <div id="docList" class="doc-list"></div>
+        </aside>
+
+        <div class="doc-work" id="docWork">
+          <div class="empty-state" id="docEmpty">
+            <div class="empty-icon" aria-hidden="true">📄</div>
+            <h2>Выберите документ слева</h2>
+            <p>Доступно <span class="doc-count">13</span> шаблонов: уведомления, протокол, бюллетени, отчёты, акты, претензии, договор.</p>
+          </div>
+
+          <div class="doc-editor" id="docEditor" hidden>
+            <div class="editor-head">
+              <div>
+                <h2 id="docTitle"></h2>
+                <p class="doc-note" id="docNote"></p>
+              </div>
+              <div class="editor-actions">
+                <button class="btn btn-primary" id="btnDownload">⬇ Скачать .doc</button>
+                <button class="btn" id="btnPrint">🖨 Печать / PDF</button>
+                <button class="btn" id="btnCopy">📋 Копировать текст</button>
+                <button class="btn btn-ghost" id="btnReset">Очистить</button>
+              </div>
+            </div>
+
+            <div class="editor-body">
+              <form class="doc-form" id="docForm" autocomplete="off"></form>
+              <div class="doc-preview-pane">
+                <div class="preview-label">Предпросмотр</div>
+                <div class="paper" id="docPreview"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- РЕКВИЗИТЫ -->
+    <section class="view" id="view-profile">
+      <div class="view-head">
+        <h1>Реквизиты дома</h1>
+        <p class="lede">Заполняется один раз. Эти данные автоматически подставляются во все документы — шапка, подписи, банковские реквизиты.</p>
+      </div>
+      <form class="card profile-form" id="profileForm" autocomplete="off"></form>
+      <div class="card-row">
+        <button class="btn btn-primary" id="btnProfileSave">Сохранить</button>
+        <button class="btn btn-ghost" id="btnProfileClear">Сбросить</button>
+        <span class="save-hint" id="profileHint"></span>
+      </div>
+    </section>
+
+    <!-- КАЛЬКУЛЯТОР -->
+    <section class="view" id="view-calc">
+      <div class="view-head">
+        <h1>Кворум и подсчёт голосов</h1>
+        <p class="lede">Арифметическая проверка собрания: доли голосов считаются по площади помещений. Пороги вынесены в поля — подставьте значения из актуальной редакции закона и устава.</p>
+      </div>
+
+      <div class="calc-grid">
+        <form class="card" id="calcForm" autocomplete="off">
+          <h2 class="card-title">Исходные данные</h2>
+          <label class="field"><span>Общая полезная площадь дома, м²</span>
+            <input type="number" step="0.01" min="0" id="c_total" placeholder="напр. 5480.5"></label>
+          <label class="field"><span>Площадь принявших участие в голосовании, м²</span>
+            <input type="number" step="0.01" min="0" id="c_voted" placeholder="напр. 3120.0"></label>
+          <label class="field"><span>Порог кворума, % от общей площади</span>
+            <input type="number" step="0.1" min="0" max="100" id="c_quorum" value="50"></label>
+          <label class="field"><span>Порог принятия решения, % от участвовавших</span>
+            <input type="number" step="0.1" min="0" max="100" id="c_decision" value="50"></label>
+
+          <h2 class="card-title">Голоса по вопросам</h2>
+          <p class="hint">Одна строка — один вопрос, в формате: <code>Формулировка | за | против | воздержался</code> (в м²).</p>
+          <textarea id="c_questions" rows="6" placeholder="Утверждение сметы на 2026 год | 2400 | 520 | 200
+Избрание председателя | 2900 | 120 | 100"></textarea>
+        </form>
+
+        <div class="card" id="calcResult">
+          <h2 class="card-title">Результат</h2>
+          <div id="calcOut" class="calc-out"><p class="muted">Введите данные слева.</p></div>
+        </div>
+      </div>
+
+      <div class="notice">
+        ⚠️ Конкретные значения кворума и порогов принятия решений устанавливаются законодательством и уставом. Перед применением сверьте их с актуальной редакцией на
+        <a href="https://adilet.zan.kz/rus" target="_blank" rel="noopener">adilet.zan.kz</a>.
+      </div>
+    </section>
+
+    <!-- ПРАВОВАЯ БАЗА -->
+    <section class="view" id="view-legal">
+      <div class="view-head">
+        <h1>Правовая база</h1>
+        <p class="lede">Ориентиры для проверки. Ссылки со значком «проверено» ведут на карточку документа в ИПС «Әділет»; остальные открывают поиск по сайту.</p>
+      </div>
+      <div class="notice notice-strong">
+        ⚠️ Законодательство и типовые формы меняются. Реквизиты актов ниже приведены как ориентир — <strong>перед использованием обязательно откройте актуальную редакцию</strong> на adilet.zan.kz. Ассистент не заменяет юриста в спорных и судебных ситуациях.
+      </div>
+      <div id="legalList" class="legal-list"></div>
+    </section>
+
+    <!-- ИНСТРУКЦИЯ -->
+    <section class="view" id="view-assistant">
+      <div class="view-head">
+        <h1>Инструкция для Claude Project</h1>
+        <p class="lede">Готовый текст системной роли. Вставьте его в Project instructions — и ассистент перестанет требовать объяснения контекста в каждом чате.</p>
+      </div>
+
+      <ol class="steps">
+        <li><a href="https://claude.ai/projects" target="_blank" rel="noopener">claude.ai/projects</a> → «+ New Project» → название, например «Управляющий МЖД».</li>
+        <li>Настройки проекта → раздел <em>Instructions</em>.</li>
+        <li>Вставьте текст ниже целиком и сохраните.</li>
+        <li>В <em>Project knowledge</em> загрузите материалы дома: устав, смету, реквизиты, список собственников.</li>
+        <li>Все новые чаты внутри проекта используют инструкцию и файлы автоматически.</li>
+      </ol>
+      <p class="hint">Project instructions доступны на платных тарифах (Pro и выше).</p>
+
+      <div class="card">
+        <div class="card-row card-row-head">
+          <h2 class="card-title">Текст инструкции</h2>
+          <button class="btn btn-primary" id="btnCopyInstruction">📋 Копировать</button>
+        </div>
+        <pre class="code-block" id="instructionText"></pre>
+      </div>
+    </section>
+
+    <!-- О ПРОДУКТЕ -->
+    <section class="view" id="view-about">
+      <div class="view-head">
+        <h1>О продукте</h1>
+        <p class="lede">Веб-приложение построено по PRD «Ассистент управляющего многоквартирным жилым домом (РК)».</p>
+      </div>
+
+      <div class="about-grid">
+        <div class="card">
+          <h2 class="card-title">Что делает приложение</h2>
+          <ul class="list">
+            <li>Готовит <span class="doc-count">13</span> типовых документов дома с подстановкой ваших реквизитов.</li>
+            <li>Проверяет арифметику: суммы смет и отчётов, доли голосов, кворум.</li>
+            <li>Держит под рукой правовую базу со ссылками на первоисточник.</li>
+            <li>Выдаёт готовую инструкцию для Claude Project — юридические консультации ведутся там.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Границы применения</h2>
+          <ul class="list">
+            <li>Не заменяет юриста в спорных и судебных ситуациях.</li>
+            <li>Не подаёт документы в госорганы и акимат.</li>
+            <li>Не интегрируется с бухгалтерскими и биллинговыми системами.</li>
+            <li>Не выдаёт юридически обязывающих заключений.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Приватность</h2>
+          <ul class="list">
+            <li>Приложение статическое, без бэкенда и аналитики.</li>
+            <li>Реквизиты дома и черновики документов лежат в localStorage браузера.</li>
+            <li>Очистка данных сайта удаляет всё безвозвратно.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Перечень шаблонов</h2>
+        <ol class="list list-num" id="aboutDocList"></ol>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="assets/js/data-profile.js"></script>
+<script src="assets/js/data-legal.js"></script>
+<script src="assets/js/data-instruction.js"></script>
+<script src="assets/js/data-templates.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
