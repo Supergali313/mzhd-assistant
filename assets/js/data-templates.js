@@ -137,6 +137,48 @@
     return { html: html, total: hasNum ? total : NaN };
   }
 
+  /** Таблица объектов собственности голосующего: вид | номер | площадь.
+      Пустая — печатается бланком под ручное заполнение. */
+  function objTable(text) {
+    var rows = ROWS(text);
+    var body, total = 0, hasArea = false;
+
+    if (!rows.length) {
+      body = '';
+      for (var i = 0; i < 3; i++) {
+        body += '<tr><td>&nbsp;</td><td>&nbsp;</td><td class="num">&nbsp;</td></tr>';
+      }
+    } else {
+      body = rows.map(function (r) {
+        var a = num(r[2]);
+        if (!isNaN(a)) { total += a; hasArea = true; }
+        return '<tr><td>' + esc(r[0] || '—') + '</td><td>' + esc(r[1] || '—') + '</td>' +
+          '<td class="num">' + (isNaN(a) ? '<span class="ph">___</span>' : money(a)) + '</td></tr>';
+      }).join('');
+    }
+
+    return '<table><thead><tr><th>Вид объекта</th><th style="width:110px">Номер</th>' +
+      '<th class="num" style="width:130px">Площадь, м²</th></tr></thead><tbody>' + body +
+      '<tr class="total"><td colspan="2">Итого</td><td class="num">' +
+      (hasArea ? money(total) : '&nbsp;') + '</td></tr></tbody></table>';
+  }
+
+  /** Таблица вопросов с графами «за / против / воздержался» под отметку. */
+  function voteTable(text, ph) {
+    var qs = L(text);
+    if (!qs.length) qs = [ph || '[формулировка вопроса]'];
+    return '<table><thead><tr><th class="num" style="width:34px">№</th><th>Вопрос, поставленный на голосование</th>' +
+      '<th class="num" style="width:62px">За</th><th class="num" style="width:74px">Против</th>' +
+      '<th class="num" style="width:96px">Воздер-жался</th></tr></thead><tbody>' +
+      qs.map(function (q, i) {
+        return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(q) +
+          '</td><td class="num">□</td><td class="num">□</td><td class="num">□</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  var OBJ_HINT = 'Одна строка — один объект: вид | номер | площадь';
+  var OBJ_PLACEHOLDER = 'квартира | 42 | 58.4\nпарковочное место | 17 | 13.5\nкладовка | 9 | 4.2';
+
   window.DOC_HELPERS = { esc: esc, V: V, D: D, Dshort: Dshort, num: num, money: money, L: L, ROWS: ROWS };
 
   var MEETING_FORMS = ['очное голосование', 'письменный опрос (заочное голосование)', 'смешанное голосование'];
@@ -368,37 +410,43 @@
       id: 'ballot',
       group: 'Общее собрание',
       title: 'Лист (бюллетень) голосования',
-      note: 'По одному листу на каждого собственника. Бланк заполняется собственником лично, отметка ставится только в одной графе по каждому вопросу.',
+      note: 'По одному листу на каждого собственника. В листе перечисляются все его объекты — квартира, нежилое помещение, парковочное место, кладовка. Вопросы содержания паркинга и кладовок вынесены в отдельный блок: их заполняют только собственники этих объектов.',
       fields: [
         { id: 'meetingDate', label: 'Дата собрания', type: 'date' },
         { id: 'ownerName', label: 'Собственник, Ф.И.О.', placeholder: 'оставьте пустым для печати бланков' },
-        { id: 'unitNo', label: 'Помещение №', placeholder: '42' },
-        { id: 'unitArea', label: 'Площадь помещения, м²', type: 'number', placeholder: '58.4' },
+        { id: 'objects', label: 'Объекты собственности', type: 'textarea', rows: 4,
+          hint: OBJ_HINT, placeholder: OBJ_PLACEHOLDER },
         { id: 'titleDoc', label: 'Документ о праве собственности', placeholder: 'договор купли-продажи от __.__.____' },
-        { id: 'questions', label: 'Вопросы для голосования', type: 'textarea', rows: 6,
-          placeholder: 'Утверждение сметы расходов на 2026 год\nИзбрание председателя ОСИ' }
+        { id: 'questions', label: 'Вопросы управления домом', type: 'textarea', rows: 5,
+          hint: 'Голосуют собственники квартир и нежилых помещений',
+          placeholder: 'Утверждение сметы расходов на 2026 год\nИзбрание председателя ОСИ' },
+        { id: 'parkQuestions', label: 'Вопросы содержания паркинга и кладовок', type: 'textarea', rows: 4,
+          hint: 'Необязательно. Голосуют собственники парковочных мест и кладовок',
+          placeholder: 'Утверждение текущего взноса на содержание парковочных мест\nЦелевой взнос на ремонт ворот паркинга' }
       ],
       render: function (c) {
         var p = c.p, f = c.f;
-        var qs = L(f.questions);
-        if (!qs.length) qs = ['[формулировка вопроса]'];
-        var body = qs.map(function (q, i) {
-          return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(q) +
-            '</td><td class="num">□</td><td class="num">□</td><td class="num">□</td></tr>';
-        }).join('');
+        var hasPark = L(f.parkQuestions).length > 0;
 
         return HEAD(p) +
           '<h1>Лист голосования</h1>' +
-          '<h2>общего собрания собственников квартир и нежилых помещений от ' + D(f.meetingDate) + '</h2>' +
+          '<h2>общего собрания собственников' +
+          (hasPark ? ' квартир, нежилых помещений, парковочных мест и кладовок' : ' квартир и нежилых помещений') +
+          ' от ' + D(f.meetingDate) + '</h2>' +
           '<p><strong>Адрес дома:</strong> ' + V(p.address, '[адрес дома]') + '</p>' +
           '<p><strong>Собственник (Ф.И.О.):</strong> ' + V(f.ownerName, '____________________________________') + '<br>' +
-          '<strong>Помещение №:</strong> ' + V(f.unitNo, '_____') + ' &nbsp; <strong>Площадь:</strong> ' +
-          (f.unitArea ? fmt(f.unitArea, 'м²') : '<span class="ph">_______ м²</span>') + '<br>' +
           '<strong>Документ о праве собственности:</strong> ' + V(f.titleDoc, '____________________________________') + '</p>' +
-          '<p>Голос собственника учитывается пропорционально площади принадлежащего ему помещения. По каждому вопросу отметка ставится только в одной графе.</p>' +
-          '<table><thead><tr><th class="num" style="width:34px">№</th><th>Вопрос, поставленный на голосование</th>' +
-          '<th class="num" style="width:62px">За</th><th class="num" style="width:74px">Против</th><th class="num" style="width:96px">Воздер-жался</th></tr></thead>' +
-          '<tbody>' + body + '</tbody></table>' +
+          '<p><strong>Объекты собственности:</strong></p>' + objTable(f.objects) +
+          '<p>По каждому вопросу отметка ставится только в одной графе.</p>' +
+          (hasPark ? '<h3>I. Вопросы управления объектом кондоминиума</h3>' +
+            '<p class="small">Заполняется собственниками квартир и нежилых помещений.</p>' : '') +
+          voteTable(f.questions) +
+          (hasPark
+            ? '<h3>II. Вопросы содержания парковочных мест и кладовок</h3>' +
+              '<p class="small">Заполняется только собственниками парковочных мест и кладовок. ' +
+              'Голоса по этим вопросам учитываются отдельно от вопросов управления домом.</p>' +
+              voteTable(f.parkQuestions)
+            : '') +
           '<p class="small">Лист, в котором по вопросу отмечено более одной графы либо не отмечено ни одной, по данному вопросу не учитывается. Исправления заверяются подписью собственника.</p>' +
           '<div class="sign">' +
           '<div class="sign-row"><span>Собственник: <span class="fill">&nbsp;</span></span>' +
@@ -414,41 +462,46 @@
       id: 'survey',
       group: 'Общее собрание',
       title: 'Лист письменного опроса (заочное голосование)',
-      note: 'Применяется при заочной форме. Обязательно фиксируются срок сбора листов и место их возврата.',
+      note: 'Применяется при заочной форме. Обязательно фиксируются срок сбора листов и место их возврата. Объекты собственника перечисляются таблицей — квартира, нежилое помещение, парковочное место, кладовка.',
       fields: [
         { id: 'startDate', label: 'Дата начала опроса', type: 'date' },
         { id: 'endDate', label: 'Дата окончания опроса', type: 'date' },
         { id: 'returnPlace', label: 'Место возврата листа', placeholder: 'офис ОСИ, подъезд № 1' },
         { id: 'initiator', label: 'Инициатор опроса', placeholder: 'председатель ОСИ' },
         { id: 'ownerName', label: 'Собственник, Ф.И.О.' },
-        { id: 'unitNo', label: 'Помещение №' },
-        { id: 'unitArea', label: 'Площадь помещения, м²', type: 'number' },
-        { id: 'questions', label: 'Вопросы для голосования', type: 'textarea', rows: 6,
-          placeholder: 'Утверждение размера взноса на содержание общего имущества\nПроведение ремонта кровли' }
+        { id: 'objects', label: 'Объекты собственности', type: 'textarea', rows: 4,
+          hint: OBJ_HINT, placeholder: OBJ_PLACEHOLDER },
+        { id: 'questions', label: 'Вопросы управления домом', type: 'textarea', rows: 5,
+          hint: 'Голосуют собственники квартир и нежилых помещений',
+          placeholder: 'Утверждение размера взноса на содержание общего имущества\nПроведение ремонта кровли' },
+        { id: 'parkQuestions', label: 'Вопросы содержания паркинга и кладовок', type: 'textarea', rows: 4,
+          hint: 'Необязательно. Голосуют собственники парковочных мест и кладовок',
+          placeholder: 'Утверждение текущего взноса на содержание парковочных мест' }
       ],
       render: function (c) {
         var p = c.p, f = c.f;
-        var qs = L(f.questions);
-        if (!qs.length) qs = ['[формулировка вопроса]'];
-        var body = qs.map(function (q, i) {
-          return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(q) +
-            '</td><td class="num">□</td><td class="num">□</td><td class="num">□</td></tr>';
-        }).join('');
+        var hasPark = L(f.parkQuestions).length > 0;
 
         return HEAD(p) +
           '<h1>Лист письменного опроса</h1>' +
-          '<h2>(заочное голосование собственников квартир и нежилых помещений)</h2>' +
+          '<h2>(заочное голосование собственников' +
+          (hasPark ? ' квартир, нежилых помещений, парковочных мест и кладовок' : ' квартир и нежилых помещений') + ')</h2>' +
           '<p><strong>Адрес дома:</strong> ' + V(p.address, '[адрес дома]') + '<br>' +
           '<strong>Инициатор опроса:</strong> ' + V(f.initiator, '[инициатор]') + '<br>' +
           '<strong>Срок проведения опроса:</strong> с ' + Dshort(f.startDate) + ' по ' + Dshort(f.endDate) + '<br>' +
           '<strong>Место возврата заполненного листа:</strong> ' + V(f.returnPlace, '[место возврата]') + '</p>' +
-          '<p><strong>Собственник (Ф.И.О.):</strong> ' + V(f.ownerName, '____________________________________') + '<br>' +
-          '<strong>Помещение №:</strong> ' + V(f.unitNo, '_____') + ' &nbsp; <strong>Площадь:</strong> ' +
-          (f.unitArea ? fmt(f.unitArea, 'м²') : '<span class="ph">_______ м²</span>') + '</p>' +
-          '<table><thead><tr><th class="num" style="width:34px">№</th><th>Вопрос, поставленный на голосование</th>' +
-          '<th class="num" style="width:62px">За</th><th class="num" style="width:74px">Против</th><th class="num" style="width:96px">Воздер-жался</th></tr></thead>' +
-          '<tbody>' + body + '</tbody></table>' +
-          '<p class="small">Лист, возвращённый после ' + Dshort(f.endDate) + ', при подведении итогов не учитывается. Голос учитывается пропорционально площади помещения.</p>' +
+          '<p><strong>Собственник (Ф.И.О.):</strong> ' + V(f.ownerName, '____________________________________') + '</p>' +
+          '<p><strong>Объекты собственности:</strong></p>' + objTable(f.objects) +
+          (hasPark ? '<h3>I. Вопросы управления объектом кондоминиума</h3>' +
+            '<p class="small">Заполняется собственниками квартир и нежилых помещений.</p>' : '') +
+          voteTable(f.questions) +
+          (hasPark
+            ? '<h3>II. Вопросы содержания парковочных мест и кладовок</h3>' +
+              '<p class="small">Заполняется только собственниками парковочных мест и кладовок. ' +
+              'Голоса по этим вопросам учитываются отдельно от вопросов управления домом.</p>' +
+              voteTable(f.parkQuestions)
+            : '') +
+          '<p class="small">Лист, возвращённый после ' + Dshort(f.endDate) + ', при подведении итогов не учитывается. Исправления заверяются подписью собственника.</p>' +
           '<div class="sign">' +
           '<div class="sign-row"><span>Собственник: <span class="fill">&nbsp;</span></span>' +
           '<span>Дата: <span class="fill" style="min-width:120px">&nbsp;</span></span></div>' +
@@ -792,7 +845,8 @@
           'ИИК (сберегательный счёт): ' + V(p.iikSave) + '<br>' +
           'Банк: ' + V(p.bank) + '</p>' +
           '<p>В случае непогашения задолженности в указанный срок ' + V(p.orgForm, 'ОСИ') +
-          ' вправе обратиться за её взысканием в судебном порядке с отнесением судебных расходов на должника.</p>' +
+          ' вправе обратиться за её взысканием к нотариусу за вынесением исполнительной надписи ' +
+          'либо в судебном порядке с отнесением всех расходов на должника.</p>' +
           '<p>Если задолженность уже погашена либо вы не согласны с расчётом — обратитесь по адресу ' +
           V(p.office, '[место приёма]') + ' или по телефону ' + V(p.phone, '[телефон]') + ' для сверки расчётов.</p>' +
           '<div class="sign">' + SIGN('Председатель ' + V(p.orgForm, 'ОСИ'), p.chairman) + '</div>';
