@@ -449,8 +449,8 @@
 
   function qaMatches(item, q) {
     if (!q) return true;
-    var hay = [item.q, item.short, item.caution, (item.steps || []).join(' '), (item.basis || []).join(' ')]
-      .join(' ').toLowerCase();
+    var hay = [item.q, item.short, item.caution, (item.steps || []).join(' '),
+      (item.basis || []).join(' '), (item.tags || []).join(' ')].join(' ').toLowerCase();
     return q.split(/\s+/).filter(Boolean).every(function (w) { return hay.indexOf(w) > -1; });
   }
 
@@ -489,6 +489,10 @@
           : '') +
         (item.caution ? '<div class="qa-caution">⚠️ ' + H.esc(item.caution) + '</div>' : '') +
         '<div class="qa-foot">' +
+        (item.cat === 'tax'
+          ? '<a class="btn btn-sm" href="' + H.esc(window.QA_TAX_CODE.url) + '" target="_blank" rel="noopener" ' +
+            'title="' + H.esc(window.QA_TAX_CODE.title) + '">Налоговый кодекс ↗</a>'
+          : '') +
         (docs ? '<span class="label">Документы:</span>' + docs : '') +
         '<button type="button" class="btn btn-sm" data-ask="' + idx + '" style="margin-left:auto">Уточнить у Claude ↗</button>' +
         '</div></div></details>';
