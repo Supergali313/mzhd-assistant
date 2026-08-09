@@ -594,6 +594,176 @@
     window.open(url, '_blank', 'noopener');
   });
 
+  /* ---------------- Судебные споры ---------------- */
+  function docButtons(ids) {
+    return (ids || []).map(function (id) {
+      var t = window.DOC_TEMPLATES.filter(function (x) { return x.id === id; })[0];
+      return t ? '<button type="button" class="btn btn-sm" data-open-doc="' + id + '">' + H.esc(t.title) + '</button>' : '';
+    }).join('');
+  }
+
+  function bindDocButtons(root) {
+    $$('[data-open-doc]', root).forEach(function (b) {
+      b.addEventListener('click', function () {
+        showView('docs');
+        openDoc(b.dataset.openDoc);
+      });
+    });
+  }
+
+  function ulOf(arr) {
+    return '<ul>' + (arr || []).map(function (s) { return '<li>' + H.esc(s) + '</li>'; }).join('') + '</ul>';
+  }
+
+  function buildCourt() {
+    $('#courtSources').innerHTML = window.COURT_SOURCES.map(function (s) {
+      return '<article class="source-card"><h3>' + H.esc(s.title) + '</h3>' +
+        '<p>' + H.esc(s.desc) + '</p>' +
+        (s.how && s.how.length
+          ? '<h4>Как искать</h4><ol>' + s.how.map(function (h) { return '<li>' + H.esc(h) + '</li>'; }).join('') + '</ol>'
+          : '') +
+        '<a class="btn btn-sm" href="' + H.esc(s.url) + '" target="_blank" rel="noopener">Открыть ↗</a></article>';
+    }).join('');
+
+    $('#courtCount').textContent = 'Разобрано споров: ' + window.COURT_TOPICS.length;
+
+    $('#courtList').innerHTML = window.COURT_TOPICS.map(function (c) {
+      return '<details class="qa"><summary><span class="qa-tag">Спор</span>' + H.esc(c.title) + '</summary>' +
+        '<div class="qa-body">' +
+        '<p class="qa-short">' + H.esc(c.short) + '</p>' +
+        '<div class="court-parties"><span class="label">Стороны:</span>' + H.esc(c.parties) + '</div>' +
+        '<h4>Что решает исход</h4>' + ulOf(c.decides) +
+        '<h4 class="h-bad">Ошибки, которые проигрывают спор</h4>' + ulOf(c.mistakes) +
+        '<h4>Что готовить заранее</h4>' + ulOf(c.prepare) +
+        '<div class="qa-caution">⚠️ ' + H.esc(c.caution) + '</div>' +
+        '<div class="qa-foot">' +
+        (c.docs && c.docs.length ? '<span class="label">Документы:</span>' + docButtons(c.docs) : '') +
+        '</div></div></details>';
+    }).join('');
+
+    bindDocButtons($('#courtList'));
+  }
+
+  /* ---------------- Идеи и новости ---------------- */
+  var ideaArea = 'all';
+
+  function areaTitle(id) {
+    var a = window.IDEA_AREAS.filter(function (x) { return x.id === id; })[0];
+    return a ? a.title : id;
+  }
+
+  function buildIdeaChips() {
+    var chips = [{ id: 'all', title: 'Все направления' }].concat(window.IDEA_AREAS);
+    $('#ideaChips').innerHTML = chips.map(function (c) {
+      var n = c.id === 'all'
+        ? window.IDEA_ITEMS.length
+        : window.IDEA_ITEMS.filter(function (i) { return i.area === c.id; }).length;
+      return '<button type="button" class="chip' + (ideaArea === c.id ? ' is-active' : '') +
+        '" data-area="' + c.id + '">' + H.esc(c.title) + ' <span class="muted">' + n + '</span></button>';
+    }).join('');
+
+    $$('.chip', $('#ideaChips')).forEach(function (b) {
+      b.addEventListener('click', function () {
+        ideaArea = b.dataset.area;
+        buildIdeaChips();
+        buildIdeas();
+      });
+    });
+  }
+
+  function buildIdeas() {
+    var items = window.IDEA_ITEMS.filter(function (i) { return ideaArea === 'all' || i.area === ideaArea; });
+    $('#ideaCount').textContent = 'Показано идей: ' + items.length + ' из ' + window.IDEA_ITEMS.length;
+
+    $('#ideaList').innerHTML = items.map(function (i) {
+      return '<details class="qa"><summary><span class="qa-tag">' + H.esc(areaTitle(i.area)) + '</span>' +
+        H.esc(i.title) + '</summary><div class="qa-body">' +
+        '<p class="qa-short">' + H.esc(i.short) + '</p>' +
+        '<h4>Что это даёт дому</h4>' + ulOf(i.gains) +
+        '<h4>Как внедрить</h4><ol>' + (i.steps || []).map(function (s) { return '<li>' + H.esc(s) + '</li>'; }).join('') + '</ol>' +
+        '<div class="qa-caution">⚠️ ' + H.esc(i.risks) + '</div>' +
+        (i.origin ? '<p class="origin-note">' + H.esc(i.origin) + '</p>' : '') +
+        '<div class="qa-foot">' +
+        (i.meeting ? '<span class="meet-flag">Нужно решение собрания</span>' : '') +
+        (i.docs && i.docs.length ? '<span class="label">Документы:</span>' + docButtons(i.docs) : '') +
+        '</div></div></details>';
+    }).join('');
+
+    bindDocButtons($('#ideaList'));
+  }
+
+  function sourceCards(list) {
+    return list.map(function (s) {
+      return '<article class="legal-card"><h3>' + H.esc(s.title) + '</h3>' +
+        '<p class="desc">' + H.esc(s.desc) + '</p>' +
+        '<div class="foot"><a class="btn" href="' + H.esc(s.url) + '" target="_blank" rel="noopener">Открыть ↗</a></div></article>';
+    }).join('');
+  }
+
+  function buildSources() {
+    $('#sourcesKz').innerHTML = sourceCards(window.NEWS_SOURCES.kz);
+    $('#sourcesWorld').innerHTML = sourceCards(window.NEWS_SOURCES.world);
+  }
+
+  /* --- Дайджест новостей через Claude --- */
+  function buildDigestPrompt() {
+    var topic = $('#digestTopic').value;
+    var period = $('#digestPeriod').value;
+    var extra = ($('#digestExtra').value || '').trim();
+
+    var lines = [
+      'Подготовь обзор для управляющего многоквартирным жилым домом в Республике Казахстан (ОСИ, КСК, простое товарищество).',
+      '',
+      'ТЕМА',
+      topic + ' — ' + period + '.' + (extra ? ' Уточнение: ' + extra + '.' : ''),
+      '',
+      'ЧТО НУЖНО',
+      '- Найди актуальную информацию поиском по сети: без него обзор будет устаревшим.',
+      '- 5–8 пунктов, каждый: что произошло, с какой даты действует и что конкретно меняется для дома.',
+      '- Отдельно выдели то, что требует действий от управляющего, и укажи срок.',
+      '- Международные практики давай только с пометкой, применимы ли они в РК и что для этого нужно.',
+      '',
+      'КАК ОТВЕЧАТЬ',
+      '- По каждому пункту указывай источник и дату публикации.',
+      '- Не выдумывай номера и даты нормативных актов. Если не уверен — скажи прямо.',
+      '- Реквизиты нормативных актов рекомендуй сверять на adilet.zan.kz.',
+      '- Не приводи ставки, пороги и размер МРП по памяти — только со ссылкой на источник.',
+      '- Отделяй факты от прогнозов и мнений комментаторов.'
+    ];
+    return lines.join('\n');
+  }
+
+  function renderDigest() {
+    if (!$('#digestPreview').hidden) $('#digestPreview').textContent = buildDigestPrompt();
+  }
+
+  ['digestTopic', 'digestPeriod', 'digestExtra'].forEach(function (id) {
+    $('#' + id).addEventListener('input', renderDigest);
+    $('#' + id).addEventListener('change', renderDigest);
+  });
+
+  $('#btnDigestToggle').addEventListener('click', function () {
+    var pre = $('#digestPreview');
+    pre.hidden = !pre.hidden;
+    this.textContent = pre.hidden ? 'Показать запрос' : 'Скрыть запрос';
+    renderDigest();
+  });
+
+  $('#btnDigestCopy').addEventListener('click', function () {
+    copyText(buildDigestPrompt(), 'Запрос скопирован — вставьте его в чат с Claude');
+  });
+
+  $('#btnDigestClaude').addEventListener('click', function () {
+    var p = buildDigestPrompt();
+    var url = 'https://claude.ai/new?q=' + encodeURIComponent(p);
+    if (url.length > 7500) {
+      copyText(p, 'Запрос длинный — он скопирован, вставьте его в чат');
+      window.open('https://claude.ai/new', '_blank', 'noopener');
+      return;
+    }
+    window.open(url, '_blank', 'noopener');
+  });
+
   /* ---------------- Правовая база ---------------- */
   function buildLegal() {
     $('#legalList').innerHTML = window.LEGAL_BASE.map(function (l) {
@@ -624,6 +794,8 @@
     }).join('');
     $$('.doc-count').forEach(function (el) { el.textContent = window.DOC_TEMPLATES.length; });
     $$('.qa-total').forEach(function (el) { el.textContent = window.QA_ITEMS.length; });
+    $$('.court-total').forEach(function (el) { el.textContent = window.COURT_TOPICS.length; });
+    $$('.idea-total').forEach(function (el) { el.textContent = window.IDEA_ITEMS.length; });
   }
 
   /* ---------------- Старт ---------------- */
@@ -632,6 +804,10 @@
   buildDocList('');
   buildChips();
   buildQA('');
+  buildCourt();
+  buildIdeaChips();
+  buildIdeas();
+  buildSources();
   buildLegal();
   buildInstruction();
   buildAbout();

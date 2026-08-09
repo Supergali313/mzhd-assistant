@@ -6,7 +6,7 @@
 <title>Ассистент управляющего МЖД — документы и правовая база (РК)</title>
 <meta name="description" content="Рабочее место управляющего многоквартирным жилым домом в Казахстане: генератор документов ОСИ/КСК/ПТ, расчёт кворума и голосов, правовая база, инструкция для Claude Project.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
-<link rel="stylesheet" href="assets/css/styles.css">
+<link rel="stylesheet" href="assets/css/styles.css?v=4">
 </head>
 <body>
 
@@ -35,6 +35,8 @@
     <button class="nav-item" data-view="consult"><span aria-hidden="true">💬</span> Консультации</button>
     <button class="nav-item" data-view="profile"><span aria-hidden="true">🏠</span> Реквизиты дома</button>
     <button class="nav-item" data-view="calc"><span aria-hidden="true">🧮</span> Кворум и голоса</button>
+    <button class="nav-item" data-view="court"><span aria-hidden="true">🏛️</span> Судебные споры</button>
+    <button class="nav-item" data-view="ideas"><span aria-hidden="true">💡</span> Идеи и новости</button>
     <button class="nav-item" data-view="legal"><span aria-hidden="true">⚖️</span> Правовая база</button>
     <button class="nav-item" data-view="assistant"><span aria-hidden="true">🤖</span> Инструкция для Claude</button>
     <button class="nav-item" data-view="about"><span aria-hidden="true">ℹ️</span> О продукте</button>
@@ -185,6 +187,85 @@
       </div>
     </section>
 
+    <!-- СУДЕБНЫЕ СПОРЫ -->
+    <section class="view" id="view-court">
+      <div class="view-head">
+        <h1>Судебные споры</h1>
+        <p class="lede">Карта типовых дел по управлению многоквартирным домом: что решает исход, какие ошибки управляющего проигрывают спор и что нужно готовить заранее — задолго до иска.</p>
+      </div>
+
+      <div class="notice notice-strong">
+        ⚠️ Здесь намеренно нет номеров конкретных дел, цитат из решений и статистики «выигранных дел». Разбор даёт логику спора и перечень доказательств; реальную практику своего региона смотрите в Банке судебных актов по ссылке ниже. Ведение судебного дела — работа юриста, а не управляющего.
+      </div>
+
+      <h2 class="section-title">Где искать реальную практику</h2>
+      <div id="courtSources" class="source-list"></div>
+
+      <h2 class="section-title">Типовые споры</h2>
+      <p class="qa-count" id="courtCount"></p>
+      <div id="courtList" class="qa-list"></div>
+    </section>
+
+    <!-- ИДЕИ И НОВОСТИ -->
+    <section class="view" id="view-ideas">
+      <div class="view-head">
+        <h1>Идеи, ноу-хау и новости ЖКХ</h1>
+        <p class="lede">Практики, которые дом может внедрить у себя, — с порядком действий и подводными камнями. Плюс проверенные источники, где следить за изменениями в Казахстане и в мире.</p>
+      </div>
+
+      <div class="notice">
+        ℹ️ Приложение работает без сервера, поэтому живой ленты новостей в нём нет — и подставлять устаревшую было бы хуже, чем не подставлять никакой. Ниже: <strong>идеи</strong> — они не устаревают, <strong>источники</strong> — там всегда актуальное, и <strong>сборщик дайджеста</strong> — соберёт запрос к Claude на свежий обзор.
+      </div>
+
+      <h2 class="section-title">Идеи и ноу-хау</h2>
+      <div class="chips" id="ideaChips"></div>
+      <p class="qa-count" id="ideaCount"></p>
+      <div id="ideaList" class="qa-list"></div>
+
+      <h2 class="section-title">Свежий обзор через Claude</h2>
+      <div class="card ask-card" id="digestCard">
+        <p class="hint">Приложение соберёт запрос на дайджест новостей и практик ЖКХ. Claude с доступом к поиску найдёт актуальное — приложение само в сеть не ходит.</p>
+
+        <div class="digest-row">
+          <label class="field"><span>Тема</span>
+            <select id="digestTopic">
+              <option>Изменения законодательства РК в сфере ЖКХ и жилищных отношений</option>
+              <option>Налоги и отчётность ОСИ и КСК</option>
+              <option>Тарифы на коммунальные услуги и их изменение</option>
+              <option>Энергоэффективность и модернизация жилых домов</option>
+              <option>Цифровизация управления домами</option>
+              <option>Международный опыт управления многоквартирными домами</option>
+              <option>Судебная практика по жилищным спорам в РК</option>
+            </select></label>
+
+          <label class="field"><span>Период</span>
+            <select id="digestPeriod">
+              <option>за последний месяц</option>
+              <option>за последние три месяца</option>
+              <option>за последние полгода</option>
+              <option>за последний год</option>
+            </select></label>
+        </div>
+
+        <label class="field"><span>Уточнение <span class="field-hint">необязательно</span></span>
+          <input type="text" id="digestExtra" placeholder="например: применительно к Алматы"></label>
+
+        <div class="card-row" style="margin-top:6px">
+          <button class="btn btn-primary" id="btnDigestClaude">Открыть в Claude ↗</button>
+          <button class="btn" id="btnDigestCopy">📋 Копировать запрос</button>
+          <button class="btn btn-ghost" id="btnDigestToggle">Показать запрос</button>
+        </div>
+
+        <pre class="code-block" id="digestPreview" hidden></pre>
+      </div>
+
+      <h2 class="section-title">Источники: Казахстан</h2>
+      <div id="sourcesKz" class="legal-list"></div>
+
+      <h2 class="section-title">Источники: международные</h2>
+      <div id="sourcesWorld" class="legal-list"></div>
+    </section>
+
     <!-- ПРАВОВАЯ БАЗА -->
     <section class="view" id="view-legal">
       <div class="view-head">
@@ -235,8 +316,10 @@
           <ul class="list">
             <li>Готовит <span class="doc-count">13</span> типовых документов дома с подстановкой ваших реквизитов.</li>
             <li>Отвечает на <span class="qa-total">33</span> разобранных вопроса по управлению домом, а остальные помогает задать Claude с контекстом дома.</li>
+            <li>Разбирает <span class="court-total">12</span> типовых судебных споров: что решает исход и какие ошибки его проигрывают.</li>
+            <li>Собирает <span class="idea-total">19</span> идей и ноу-хау для дома — от теплового узла до открытой отчётности.</li>
             <li>Проверяет арифметику: суммы смет и отчётов, доли голосов, кворум.</li>
-            <li>Держит под рукой правовую базу со ссылками на первоисточник.</li>
+            <li>Держит под рукой правовую базу и проверенные источники новостей ЖКХ.</li>
             <li>Выдаёт готовую инструкцию для Claude Project — для постоянной работы в отдельном проекте.</li>
           </ul>
         </div>
@@ -269,11 +352,13 @@
   </main>
 </div>
 
-<script src="assets/js/data-profile.js"></script>
-<script src="assets/js/data-legal.js"></script>
-<script src="assets/js/data-qa.js"></script>
-<script src="assets/js/data-instruction.js"></script>
-<script src="assets/js/data-templates.js"></script>
-<script src="assets/js/app.js"></script>
+<script src="assets/js/data-profile.js?v=4"></script>
+<script src="assets/js/data-legal.js?v=4"></script>
+<script src="assets/js/data-qa.js?v=4"></script>
+<script src="assets/js/data-ideas.js?v=4"></script>
+<script src="assets/js/data-court.js?v=4"></script>
+<script src="assets/js/data-instruction.js?v=4"></script>
+<script src="assets/js/data-templates.js?v=4"></script>
+<script src="assets/js/app.js?v=4"></script>
 </body>
 </html>
