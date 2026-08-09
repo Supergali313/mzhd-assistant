@@ -301,6 +301,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .paper th, .paper td { border: 1px solid #666; padding: 6px 8px; text-align: left; vertical-align: top; }
 .paper th { background: #eeeeee; font-weight: 700; }
 .paper td.num, .paper th.num { text-align: right; white-space: nowrap; }
+.paper td.sig { height: 34px; }
 .paper tr.total td { font-weight: 700; background: #f6f6f6; }
 .paper .sign { margin-top: 26px; }
 .paper .sign-row { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; margin-bottom: 16px; }

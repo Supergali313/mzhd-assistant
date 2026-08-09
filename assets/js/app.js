@@ -273,7 +273,7 @@
       '.head-right { width: 58%; margin-left: 42%; margin-bottom: 16pt; }' +
       'table { width: 100%; border-collapse: collapse; margin: 8pt 0 12pt; font-size: 11pt; }' +
       'th, td { border: 1px solid #000; padding: 4pt 6pt; vertical-align: top; }' +
-      'th { background: #eee; } .num { text-align: right; }' +
+      'th { background: #eee; } .num { text-align: right; } td.sig { height: 30pt; }' +
       '.small { font-size: 9.5pt; } .fill { display: inline-block; min-width: 170pt; border-bottom: 1px solid #000; }' +
       '.sign-row { margin-bottom: 14pt; }' +
       '</style></head><body>' + cleanBody() + '</body></html>';

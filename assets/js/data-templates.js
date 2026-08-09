@@ -137,47 +137,42 @@
     return { html: html, total: hasNum ? total : NaN };
   }
 
-  /** Таблица объектов собственности голосующего: вид | номер | площадь.
+  /** Таблица объектов собственности голосующего: вид | номер.
       Пустая — печатается бланком под ручное заполнение. */
   function objTable(text) {
     var rows = ROWS(text);
-    var body, total = 0, hasArea = false;
+    var body;
 
     if (!rows.length) {
       body = '';
-      for (var i = 0; i < 3; i++) {
-        body += '<tr><td>&nbsp;</td><td>&nbsp;</td><td class="num">&nbsp;</td></tr>';
-      }
+      for (var i = 0; i < 3; i++) body += '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
     } else {
       body = rows.map(function (r) {
-        var a = num(r[2]);
-        if (!isNaN(a)) { total += a; hasArea = true; }
-        return '<tr><td>' + esc(r[0] || '—') + '</td><td>' + esc(r[1] || '—') + '</td>' +
-          '<td class="num">' + (isNaN(a) ? '<span class="ph">___</span>' : money(a)) + '</td></tr>';
+        return '<tr><td>' + esc(r[0] || '—') + '</td><td>' + esc(r[1] || '—') + '</td></tr>';
       }).join('');
     }
 
-    return '<table><thead><tr><th>Вид объекта</th><th style="width:110px">Номер</th>' +
-      '<th class="num" style="width:130px">Площадь, м²</th></tr></thead><tbody>' + body +
-      '<tr class="total"><td colspan="2">Итого</td><td class="num">' +
-      (hasArea ? money(total) : '&nbsp;') + '</td></tr></tbody></table>';
+    return '<table><thead><tr><th>Вид объекта</th><th style="width:150px">Номер</th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table>';
   }
 
-  /** Таблица вопросов с графами «за / против / воздержался» под отметку. */
+  /** Таблица вопросов: собственник расписывается в одной из трёх граф. */
   function voteTable(text, ph) {
     var qs = L(text);
     if (!qs.length) qs = [ph || '[формулировка вопроса]'];
+    function head(word) {
+      return '<th class="num" style="width:96px">' + word + '<br><span class="small">(подпись)</span></th>';
+    }
     return '<table><thead><tr><th class="num" style="width:34px">№</th><th>Вопрос, поставленный на голосование</th>' +
-      '<th class="num" style="width:62px">За</th><th class="num" style="width:74px">Против</th>' +
-      '<th class="num" style="width:96px">Воздер-жался</th></tr></thead><tbody>' +
+      head('За') + head('Против') + head('Воздер-жался') + '</tr></thead><tbody>' +
       qs.map(function (q, i) {
         return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(q) +
-          '</td><td class="num">□</td><td class="num">□</td><td class="num">□</td></tr>';
+          '</td><td class="sig">&nbsp;</td><td class="sig">&nbsp;</td><td class="sig">&nbsp;</td></tr>';
       }).join('') + '</tbody></table>';
   }
 
-  var OBJ_HINT = 'Одна строка — один объект: вид | номер | площадь';
-  var OBJ_PLACEHOLDER = 'квартира | 42 | 58.4\nпарковочное место | 17 | 13.5\nкладовка | 9 | 4.2';
+  var OBJ_HINT = 'Одна строка — один объект: вид | номер';
+  var OBJ_PLACEHOLDER = 'квартира | 42\nпарковочное место | 17\nкладовка | 9';
 
   window.DOC_HELPERS = { esc: esc, V: V, D: D, Dshort: Dshort, num: num, money: money, L: L, ROWS: ROWS };
 
@@ -416,7 +411,6 @@
         { id: 'ownerName', label: 'Собственник, Ф.И.О.', placeholder: 'оставьте пустым для печати бланков' },
         { id: 'objects', label: 'Объекты собственности', type: 'textarea', rows: 4,
           hint: OBJ_HINT, placeholder: OBJ_PLACEHOLDER },
-        { id: 'titleDoc', label: 'Документ о праве собственности', placeholder: 'договор купли-продажи от __.__.____' },
         { id: 'questions', label: 'Вопросы управления домом', type: 'textarea', rows: 5,
           hint: 'Голосуют собственники квартир и нежилых помещений',
           placeholder: 'Утверждение сметы расходов на 2026 год\nИзбрание председателя ОСИ' },
@@ -434,10 +428,9 @@
           (hasPark ? ' квартир, нежилых помещений, парковочных мест и кладовок' : ' квартир и нежилых помещений') +
           ' от ' + D(f.meetingDate) + '</h2>' +
           '<p><strong>Адрес дома:</strong> ' + V(p.address, '[адрес дома]') + '</p>' +
-          '<p><strong>Собственник (Ф.И.О.):</strong> ' + V(f.ownerName, '____________________________________') + '<br>' +
-          '<strong>Документ о праве собственности:</strong> ' + V(f.titleDoc, '____________________________________') + '</p>' +
+          '<p><strong>Собственник (Ф.И.О.):</strong> ' + V(f.ownerName, '____________________________________') + '</p>' +
           '<p><strong>Объекты собственности:</strong></p>' + objTable(f.objects) +
-          '<p>По каждому вопросу отметка ставится только в одной графе.</p>' +
+          '<p>По каждому вопросу подпись ставится только в одной графе.</p>' +
           (hasPark ? '<h3>I. Вопросы управления объектом кондоминиума</h3>' +
             '<p class="small">Заполняется собственниками квартир и нежилых помещений.</p>' : '') +
           voteTable(f.questions) +
@@ -447,7 +440,7 @@
               'Голоса по этим вопросам учитываются отдельно от вопросов управления домом.</p>' +
               voteTable(f.parkQuestions)
             : '') +
-          '<p class="small">Лист, в котором по вопросу отмечено более одной графы либо не отмечено ни одной, по данному вопросу не учитывается. Исправления заверяются подписью собственника.</p>' +
+          '<p class="small">Лист, в котором по вопросу подпись проставлена более чем в одной графе либо не проставлена ни в одной, по данному вопросу не учитывается. Исправления заверяются подписью собственника.</p>' +
           '<div class="sign">' +
           '<div class="sign-row"><span>Собственник: <span class="fill">&nbsp;</span></span>' +
           '<span>Дата: <span class="fill" style="min-width:120px">&nbsp;</span></span></div>' +
@@ -492,6 +485,7 @@
           '<strong>Место возврата заполненного листа:</strong> ' + V(f.returnPlace, '[место возврата]') + '</p>' +
           '<p><strong>Собственник (Ф.И.О.):</strong> ' + V(f.ownerName, '____________________________________') + '</p>' +
           '<p><strong>Объекты собственности:</strong></p>' + objTable(f.objects) +
+          '<p>По каждому вопросу подпись ставится только в одной графе.</p>' +
           (hasPark ? '<h3>I. Вопросы управления объектом кондоминиума</h3>' +
             '<p class="small">Заполняется собственниками квартир и нежилых помещений.</p>' : '') +
           voteTable(f.questions) +
@@ -845,7 +839,7 @@
           'ИИК (сберегательный счёт): ' + V(p.iikSave) + '<br>' +
           'Банк: ' + V(p.bank) + '</p>' +
           '<p>В случае непогашения задолженности в указанный срок ' + V(p.orgForm, 'ОСИ') +
-          ' вправе обратиться за её взысканием к нотариусу за вынесением исполнительной надписи ' +
+          ' вправе обратиться за её взысканием к нотариусу за совершением исполнительной надписи ' +
           'либо в судебном порядке с отнесением всех расходов на должника.</p>' +
           '<p>Если задолженность уже погашена либо вы не согласны с расчётом — обратитесь по адресу ' +
           V(p.office, '[место приёма]') + ' или по телефону ' + V(p.phone, '[телефон]') + ' для сверки расчётов.</p>' +
