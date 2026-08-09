@@ -610,6 +610,125 @@
     },
 
     {
+      id: 'audit-report',
+      group: 'Отчётность',
+      title: 'Отчёт ревизионной комиссии (ревизора)',
+      note: 'Выносится на общее собрание вместе с годовым отчётом. Приложение сверяет остаток денежных средств и считает отклонение факта от сметы по каждой статье.',
+      fields: [
+        { id: 'reportNo', label: 'Номер отчёта', placeholder: '1' },
+        { id: 'reportDate', label: 'Дата составления', type: 'date' },
+        { id: 'periodFrom', label: 'Проверяемый период с', type: 'date' },
+        { id: 'periodTo', label: 'Проверяемый период по', type: 'date' },
+        { id: 'auditors', label: 'Состав ревизионной комиссии (ревизор)', type: 'textarea', rows: 3,
+          placeholder: 'Сериков С. С., председатель комиссии, кв. 12\nИванова И. И., член комиссии, кв. 44' },
+        { id: 'basis', label: 'Основание проверки', placeholder: 'протокол общего собрания № 2 от 15.01.2026, устав ОСИ' },
+        { id: 'checkDates', label: 'Проверка проведена', placeholder: 'с 10 по 20 февраля 2026 года' },
+        { id: 'checked', label: 'Что проверено', type: 'textarea', rows: 5,
+          placeholder: 'Банковские выписки по текущему и сберегательному счетам\nДоговоры с подрядчиками и акты выполненных работ\nПлатёжные поручения и кассовые документы\nВедомости начислений и оплат собственников' },
+        { id: 'openBalance', label: 'Остаток на начало периода, тенге', type: 'number' },
+        { id: 'income', label: 'Поступило за период, тенге', type: 'number' },
+        { id: 'expense', label: 'Израсходовано за период, тенге', type: 'number' },
+        { id: 'factBalance', label: 'Остаток по данным учёта на конец периода, тенге', type: 'number',
+          hint: 'Приложение сверит его с расчётным' },
+        { id: 'estimate', label: 'Исполнение сметы', type: 'textarea', rows: 6,
+          hint: 'Формат строки: статья | по смете | фактически',
+          placeholder: 'Заработная плата и налоги | 7440000 | 7380000\nТекущий ремонт | 2900000 | 3450000\nВывоз мусора | 2160000 | 2160000' },
+        { id: 'debt', label: 'Задолженность собственников на конец периода, тенге', type: 'number' },
+        { id: 'saveBalance', label: 'Остаток на сберегательном счёте, тенге', type: 'number' },
+        { id: 'violations', label: 'Выявленные нарушения и замечания', type: 'textarea', rows: 4,
+          placeholder: 'Расходы по статье «Текущий ремонт» превысили смету без решения собрания.\nПо договору № 12 отсутствует акт выполненных работ.' },
+        { id: 'recommendations', label: 'Рекомендации', type: 'textarea', rows: 4,
+          placeholder: 'Вынести перерасход по текущему ремонту на утверждение общего собрания.\nВосстановить недостающие первичные документы в срок до ___.' },
+        { id: 'verdict', label: 'Вывод комиссии', type: 'select',
+          options: ['нарушений не выявлено', 'выявлены отдельные нарушения', 'выявлены существенные нарушения'] },
+        { id: 'proposal', label: 'Предложение собранию', type: 'select',
+          options: ['утвердить годовой отчёт', 'утвердить годовой отчёт с учётом замечаний', 'отчёт не утверждать'] }
+      ],
+      render: function (c) {
+        var p = c.p, f = c.f;
+        var open = num(f.openBalance), inc = num(f.income), exp = num(f.expense);
+        var calc = (isNaN(open) ? 0 : open) + (isNaN(inc) ? 0 : inc) - (isNaN(exp) ? 0 : exp);
+        var fact = num(f.factBalance);
+        var complete = !isNaN(open) && !isNaN(inc) && !isNaN(exp);
+        var diff = (complete && !isNaN(fact)) ? fact - calc : NaN;
+
+        var rows = ROWS(f.estimate);
+        var sumPlan = 0, sumFact = 0, hasRows = false;
+        var estBody = rows.map(function (r) {
+          var pl = num(r[1]), fc = num(r[2]);
+          if (!isNaN(pl)) { sumPlan += pl; hasRows = true; }
+          if (!isNaN(fc)) { sumFact += fc; hasRows = true; }
+          var d = (!isNaN(pl) && !isNaN(fc)) ? fc - pl : NaN;
+          var pct = (!isNaN(d) && pl > 0) ? (d / pl * 100).toFixed(1).replace('-', '−') + ' %' : '—';
+          return '<tr><td>' + esc(r[0] || '—') + '</td>' +
+            '<td class="num">' + (isNaN(pl) ? '<span class="ph">___</span>' : money(pl)) + '</td>' +
+            '<td class="num">' + (isNaN(fc) ? '<span class="ph">___</span>' : money(fc)) + '</td>' +
+            '<td class="num">' + (isNaN(d) ? '—' : (d > 0 ? '+' : '') + money(d)) + '</td>' +
+            '<td class="num">' + pct + '</td></tr>';
+        }).join('');
+        if (!rows.length) {
+          estBody = '<tr><td><span class="ph">[статья сметы]</span></td>' +
+            '<td class="num"><span class="ph">___</span></td><td class="num"><span class="ph">___</span></td>' +
+            '<td class="num">—</td><td class="num">—</td></tr>';
+        }
+        var sumDiff = hasRows ? sumFact - sumPlan : NaN;
+
+        return HEAD(p) +
+          '<h1>Отчёт № ' + V(f.reportNo) + '</h1>' +
+          '<h2>ревизионной комиссии (ревизора) о результатах проверки финансово-хозяйственной деятельности</h2>' +
+          '<div class="row"><span>' + place(p, f) + '</span><span>' + D(f.reportDate) + '</span></div>' +
+          '<p><strong>Адрес дома:</strong> ' + V(p.address, '[адрес дома]') + '<br>' +
+          '<strong>Проверяемый период:</strong> с ' + Dshort(f.periodFrom) + ' по ' + Dshort(f.periodTo) + '<br>' +
+          '<strong>Основание проверки:</strong> ' + V(f.basis, '[решение собрания, устав]') + '<br>' +
+          '<strong>Проверка проведена:</strong> ' + V(f.checkDates, '[даты проведения проверки]') + '</p>' +
+          '<p><strong>Ревизионная комиссия в составе:</strong></p>' + UL(f.auditors, '[Ф.И.О., должность в комиссии, помещение]') +
+          '<h3>1. Объём проверки</h3>' +
+          '<p>Проверке подвергнуты следующие документы и сведения:</p>' + OL(f.checked, '[перечень проверенных документов]') +
+          '<h3>2. Движение денежных средств</h3>' +
+          '<table><tbody>' +
+          '<tr><td>Остаток на начало периода</td><td class="num">' + fmt(f.openBalance) + '</td></tr>' +
+          '<tr><td>Поступило за период</td><td class="num">' + fmt(f.income) + '</td></tr>' +
+          '<tr><td>Израсходовано за период</td><td class="num">' + fmt(f.expense) + '</td></tr>' +
+          '<tr class="total"><td>Расчётный остаток на конец периода</td><td class="num">' +
+          (complete ? money(calc) : '<span class="ph">___</span>') + '</td></tr>' +
+          '<tr><td>Остаток по данным учёта</td><td class="num">' + fmt(f.factBalance) + '</td></tr>' +
+          '</tbody></table>' +
+          (isNaN(diff)
+            ? '<p class="small">Сверка остатка возможна после заполнения всех показателей движения средств.</p>'
+            : (Math.abs(diff) < 0.01
+              ? '<p>Расхождений между расчётным остатком и данными учёта не выявлено.</p>'
+              : '<p class="warn">Выявлено расхождение между расчётным остатком и данными учёта: ' +
+                money(diff) + ' тенге. Причина расхождения подлежит выяснению.</p>')) +
+          '<h3>3. Исполнение сметы</h3>' +
+          '<table><thead><tr><th>Статья</th><th class="num" style="width:120px">По смете</th>' +
+          '<th class="num" style="width:120px">Фактически</th><th class="num" style="width:120px">Отклонение</th>' +
+          '<th class="num" style="width:70px">%</th></tr></thead><tbody>' + estBody +
+          '<tr class="total"><td>ИТОГО</td><td class="num">' + (hasRows ? money(sumPlan) : '<span class="ph">___</span>') +
+          '</td><td class="num">' + (hasRows ? money(sumFact) : '<span class="ph">___</span>') +
+          '</td><td class="num">' + (isNaN(sumDiff) ? '—' : (sumDiff > 0 ? '+' : '') + money(sumDiff)) +
+          '</td><td class="num">' + ((!isNaN(sumDiff) && sumPlan > 0) ? (sumDiff / sumPlan * 100).toFixed(1).replace('-', '−') + ' %' : '—') +
+          '</td></tr></tbody></table>' +
+          (sumDiff > 0 ? '<p class="small warn">Фактические расходы превышают смету. Перерасход требует объяснения и решения общего собрания.</p>' : '') +
+          '<p><strong>Задолженность собственников на конец периода:</strong> ' + fmt(f.debt, 'тенге') + '<br>' +
+          '<strong>Остаток на сберегательном счёте:</strong> ' + fmt(f.saveBalance, 'тенге') + '</p>' +
+          '<h3>4. Выявленные нарушения и замечания</h3>' +
+          (L(f.violations).length ? OL(f.violations) : '<p>В ходе проверки нарушений не выявлено.</p>') +
+          '<h3>5. Рекомендации</h3>' + OL(f.recommendations, '[рекомендация комиссии]') +
+          '<h3>6. Выводы</h3>' +
+          '<p>По результатам проверки финансово-хозяйственной деятельности за проверяемый период ' +
+          V(f.verdict, 'нарушений не выявлено') + '.</p>' +
+          '<p>Ревизионная комиссия предлагает общему собранию собственников: <strong>' +
+          V(f.proposal, 'утвердить годовой отчёт') + '</strong>.</p>' +
+          '<p class="small">Отчёт составлен в ___ экземплярах и выносится на рассмотрение общего собрания вместе с годовым отчётом.</p>' +
+          '<div class="sign"><p><strong>Подписи членов ревизионной комиссии:</strong></p>' +
+          (L(f.auditors).length
+            ? L(f.auditors).map(function (m) { return SIGN(esc(m), ''); }).join('')
+            : SIGN('[Ф.И.О., должность в комиссии]', '')) +
+          '</div>';
+      }
+    },
+
+    {
       id: 'act-reconciliation',
       group: 'Отчётность',
       title: 'Акт сверки взаиморасчётов',
@@ -876,6 +995,107 @@
     },
 
     /* ============ ПРОЧЕЕ ============ */
+    {
+      id: 'act-handover',
+      group: 'Прочее',
+      title: 'Акт приёма-передачи дел председателя',
+      note: 'Составляется при смене председателя. Фиксирует документы, деньги, печать и имущество; отдельным разделом — то, что передать не удалось. Именно этот раздел решает будущий спор с прежним председателем.',
+      fields: [
+        { id: 'actNo', label: 'Номер акта', placeholder: '1' },
+        { id: 'actDate', label: 'Дата составления', type: 'date' },
+        { id: 'basis', label: 'Основание', placeholder: 'протокол общего собрания № 4 от 08.08.2026 об избрании председателя' },
+        { id: 'fromName', label: 'Передаёт (прежний председатель), Ф.И.О.' },
+        { id: 'fromPeriod', label: 'Срок полномочий передающего', placeholder: 'с 01.03.2023 по 08.08.2026' },
+        { id: 'toName', label: 'Принимает (вновь избранный председатель), Ф.И.О.' },
+        { id: 'commission', label: 'В присутствии (совет дома, ревизионная комиссия)', type: 'textarea', rows: 3,
+          placeholder: 'Сериков С. С., председатель ревизионной комиссии\nИванова И. И., член совета дома' },
+        { id: 'docs', label: 'Передаваемые документы', type: 'textarea', rows: 8,
+          hint: 'Формат строки: наименование | количество | примечание',
+          placeholder: 'Устав ОСИ (оригинал) | 1 экз. | \nСправка о государственной регистрации | 1 экз. | \nПротоколы общих собраний за 2023–2026 годы | 7 шт. | \nТехнический паспорт дома | 1 экз. | \nДоговоры с поставщиками и подрядчиками | 12 шт. | \nБухгалтерская и налоговая отчётность | за 3 года | \nРеестр собственников | 1 экз. | на 6 л.\nАкты выполненных работ | 18 шт. | ' },
+        { id: 'funds', label: 'Денежные средства', type: 'textarea', rows: 4,
+          hint: 'Формат строки: наименование | сумма',
+          placeholder: 'Остаток на текущем счёте | 1250000\nОстаток на сберегательном счёте | 2100000\nНаличные в кассе | 0' },
+        { id: 'property', label: 'Печать, ключи, имущество', type: 'textarea', rows: 5,
+          placeholder: 'Печать ОСИ — 1 шт.\nКлючи от офиса, подвала и электрощитовых — 8 шт.\nНоутбук, инв. № ___ — 1 шт.\nЭлектронная цифровая подпись (носитель) — 1 шт.' },
+        { id: 'accounts', label: 'Отметка о переоформлении в банке и регистрирующем органе', type: 'textarea', rows: 3,
+          placeholder: 'Заявление о смене первого руководителя подано ___.\nДоступ к интернет-банкингу прежнего председателя заблокирован ___.' },
+        { id: 'notHanded', label: 'Не передано / замечания', type: 'textarea', rows: 4,
+          placeholder: 'Акты выполненных работ по договору № 7 от 12.05.2025 — отсутствуют.\nВыписка по сберегательному счёту за 2024 год не представлена.' },
+        { id: 'deadline', label: 'Срок досылки недостающего', type: 'date' },
+        { id: 'attachments', label: 'Приложения', type: 'textarea', rows: 3,
+          placeholder: 'Опись документов на ___ л.\nАкт сверки с банком на ___ л.' }
+      ],
+      render: function (c) {
+        var p = c.p, f = c.f;
+
+        var docRows = ROWS(f.docs);
+        var docBody = docRows.length
+          ? docRows.map(function (r, i) {
+              return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(r[0] || '—') + '</td>' +
+                '<td class="num">' + esc(r[1] || '—') + '</td><td>' + esc(r[2] || '') + '</td></tr>';
+            }).join('')
+          : '<tr><td class="num">1</td><td><span class="ph">[наименование документа]</span></td>' +
+            '<td class="num"><span class="ph">___</span></td><td>&nbsp;</td></tr>';
+
+        var fundRows = ROWS(f.funds);
+        var total = 0, hasFunds = false;
+        var fundBody = fundRows.map(function (r) {
+          var n = num(r[1]);
+          if (!isNaN(n)) { total += n; hasFunds = true; }
+          return '<tr><td>' + esc(r[0] || '—') + '</td><td class="num">' +
+            (isNaN(n) ? '<span class="ph">___</span>' : money(n)) + '</td></tr>';
+        }).join('');
+        if (!fundRows.length) {
+          fundBody = '<tr><td><span class="ph">[остаток на счёте]</span></td><td class="num"><span class="ph">___</span></td></tr>';
+        }
+
+        var problems = L(f.notHanded).length;
+
+        return HEAD(p) +
+          '<h1>Акт № ' + V(f.actNo) + '</h1>' +
+          '<h2>приёма-передачи дел, документов и имущества при смене председателя</h2>' +
+          '<div class="row"><span>' + place(p, f) + '</span><span>' + D(f.actDate) + '</span></div>' +
+          '<p><strong>Основание:</strong> ' + V(f.basis, '[протокол общего собрания об избрании председателя]') + '</p>' +
+          '<p>Настоящим удостоверяется, что <strong>' + V(f.fromName, '[Ф.И.О. прежнего председателя]') + '</strong>, исполнявший обязанности председателя ' +
+          V(p.orgForm, 'ОСИ') + ' ' + V(p.orgName, '«наименование»') + ' ' + V(f.fromPeriod, '[срок полномочий]') +
+          ', передал, а <strong>' + V(f.toName, '[Ф.И.О. вновь избранного председателя]') +
+          '</strong>, избранный председателем, принял дела, документы, денежные средства и имущество ' +
+          V(p.orgForm, 'ОСИ') + ' по дому, расположенному по адресу: ' + V(p.address, '[адрес дома]') + '.</p>' +
+          '<p><strong>Передача произведена в присутствии:</strong></p>' + UL(f.commission, '[Ф.И.О., статус]') +
+          '<h3>1. Документы</h3>' +
+          '<table><thead><tr><th class="num" style="width:36px">№</th><th>Наименование документа</th>' +
+          '<th class="num" style="width:110px">Количество</th><th style="width:150px">Примечание</th></tr></thead>' +
+          '<tbody>' + docBody + '</tbody></table>' +
+          '<h3>2. Денежные средства</h3>' +
+          '<table><thead><tr><th>Наименование</th><th class="num" style="width:160px">Сумма, тенге</th></tr></thead><tbody>' +
+          fundBody + '<tr class="total"><td>ИТОГО</td><td class="num">' +
+          (hasFunds ? money(total) : '<span class="ph">___</span>') + '</td></tr></tbody></table>' +
+          '<p class="small">Остатки подтверждаются банковскими выписками на дату составления акта.</p>' +
+          '<h3>3. Печать, ключи и имущество</h3>' + OL(f.property, '[наименование, количество]') +
+          '<h3>4. Переоформление полномочий</h3>' +
+          (L(f.accounts).length
+            ? OL(f.accounts)
+            : '<p><span class="ph">[отметка о подаче заявления о смене первого руководителя и о блокировке доступа к счетам]</span></p>') +
+          '<p class="small">До внесения изменений в регистрационные данные и в банковские документы полномочия по распоряжению счетами сохраняются за прежним председателем. Переоформление производится незамедлительно.</p>' +
+          '<h3>5. Не передано, замечания</h3>' +
+          (problems
+            ? OL(f.notHanded) +
+              '<p class="warn">Указанные документы и сведения на дату составления акта не переданы. Прежний председатель обязуется передать их в срок до ' +
+              D(f.deadline) + '. Настоящий акт является подтверждением факта непередачи.</p>'
+            : '<p>Замечаний по составу переданных документов, денежных средств и имущества не имеется.</p>') +
+          '<h3>Приложения</h3>' + OL(f.attachments, '[опись документов, иные приложения]') +
+          '<p class="small">Акт составлен в двух экземплярах, имеющих одинаковую юридическую силу, по одному для каждой стороны.</p>' +
+          '<div class="sign">' +
+          SIGN('Передал, прежний председатель', f.fromName) +
+          SIGN('Принял, председатель', f.toName) +
+          '<p><strong>Присутствовали:</strong></p>' +
+          (L(f.commission).length
+            ? L(f.commission).map(function (m) { return SIGN(esc(m), ''); }).join('')
+            : SIGN('[Ф.И.О., статус]', '')) +
+          '</div>';
+      }
+    },
+
     {
       id: 'contract',
       group: 'Прочее',
