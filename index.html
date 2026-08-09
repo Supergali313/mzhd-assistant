@@ -6,7 +6,7 @@
 <title>Ассистент управляющего МЖД — документы и правовая база (РК)</title>
 <meta name="description" content="Рабочее место управляющего многоквартирным жилым домом в Казахстане: генератор документов ОСИ/КСК/ПТ, расчёт кворума и голосов, правовая база, инструкция для Claude Project.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
-<link rel="stylesheet" href="assets/css/styles.css?v=13">
+<link rel="stylesheet" href="assets/css/styles.css?v=14">
 </head>
 <body>
 
@@ -189,11 +189,11 @@
               <input type="number" step="1" min="0" id="c_votedUnits" placeholder="напр. 62"></label>
           </div>
 
-          <h2 class="card-title">Паркинг и кладовки — отдельный состав</h2>
-          <p class="hint">Заполняйте, только если на собрании рассматривались вопросы содержания парковочных мест и кладовок: по закону их решают собственники этих объектов, отдельно от вопросов управления домом. Оставьте пустым — блок не появится в результате.</p>
+          <h2 class="card-title">Паркинг — отдельный состав</h2>
+          <p class="hint">Заполняйте, только если на собрании рассматривались вопросы содержания парковочных мест: по закону их решают собственники этих мест, отдельно от вопросов управления домом. Оставьте пустым — блок не появится в результате.</p>
 
           <div class="basis-group" id="grpArea2">
-            <label class="field"><span>Площадь парковочных мест и кладовок, м²</span>
+            <label class="field"><span>Площадь парковочных мест, м²</span>
               <input type="number" step="0.01" min="0" id="c2_total" placeholder="напр. 640.0"></label>
             <label class="field"><span>Площадь принявших участие, м²</span>
               <input type="number" step="0.01" min="0" id="c2_voted" placeholder="напр. 400.0"></label>
@@ -201,14 +201,11 @@
 
           <div class="basis-group" id="grpUnits2" hidden>
             <div class="two-col">
-              <label class="field"><span>Парковочных мест</span>
+              <label class="field"><span>Всего парковочных мест</span>
                 <input type="number" step="1" min="0" id="c2_park" placeholder="напр. 40"></label>
-              <label class="field"><span>Кладовок</span>
-                <input type="number" step="1" min="0" id="c2_store" placeholder="напр. 12"></label>
+              <label class="field"><span>Приняли участие, собственников</span>
+                <input type="number" step="1" min="0" id="c2_votedUnits" placeholder="напр. 30"></label>
             </div>
-            <div class="sum-line" id="c2_unitsTotal">Всего голосов: <b>—</b></div>
-            <label class="field"><span>Приняли участие, собственников (голосов)</span>
-              <input type="number" step="1" min="0" id="c2_votedUnits" placeholder="напр. 30"></label>
           </div>
 
           <h2 class="card-title">Пороги</h2>
@@ -221,7 +218,7 @@
 
           <h2 class="card-title">Голоса по вопросам</h2>
           <p class="hint">Одна строка — один вопрос: <code>Формулировка | за | против | воздержался</code> <span id="c_unitHint">(в м²)</span>.
-            Чтобы отнести вопрос к паркингу и кладовкам, допишите пятым полем <code>паркинг</code>.</p>
+            Чтобы отнести вопрос к паркингу, допишите пятым полем <code>паркинг</code>.</p>
           <textarea id="c_questions" rows="7" placeholder="Утверждение сметы на 2026 год | 2400 | 520 | 200
 Избрание председателя | 2900 | 120 | 100
 Взнос на содержание паркинга | 300 | 60 | 40 | паркинг"></textarea>
@@ -404,13 +401,13 @@
   </main>
 </div>
 
-<script src="assets/js/data-profile.js?v=13"></script>
-<script src="assets/js/data-legal.js?v=13"></script>
-<script src="assets/js/data-qa.js?v=13"></script>
-<script src="assets/js/data-ideas.js?v=13"></script>
-<script src="assets/js/data-court.js?v=13"></script>
-<script src="assets/js/data-instruction.js?v=13"></script>
-<script src="assets/js/data-templates.js?v=13"></script>
-<script src="assets/js/app.js?v=13"></script>
+<script src="assets/js/data-profile.js?v=14"></script>
+<script src="assets/js/data-legal.js?v=14"></script>
+<script src="assets/js/data-qa.js?v=14"></script>
+<script src="assets/js/data-ideas.js?v=14"></script>
+<script src="assets/js/data-court.js?v=14"></script>
+<script src="assets/js/data-instruction.js?v=14"></script>
+<script src="assets/js/data-templates.js?v=14"></script>
+<script src="assets/js/app.js?v=14"></script>
 </body>
 </html>

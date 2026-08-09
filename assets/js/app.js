@@ -403,7 +403,7 @@
 
   /* Два самостоятельных состава голосующих:
      'home' — собственники квартир и нежилых помещений (вопросы управления домом);
-     'park' — собственники парковочных мест и кладовок (вопросы их содержания). */
+     'park' — собственники парковочных мест (вопросы их содержания). */
   var GROUPS = {
     home: {
       title: 'Управление домом — квартиры и нежилые помещения',
@@ -414,11 +414,11 @@
       need: 'Заполните данные по квартирам и нежилым помещениям.'
     },
     park: {
-      title: 'Паркинг и кладовки',
+      title: 'Паркинг',
       areaTotal: 'c2_total', areaVoted: 'c2_voted',
-      unitParts: ['c2_park', 'c2_store'], unitVoted: 'c2_votedUnits', unitSum: 'c2_unitsTotal',
-      totalLabelArea: 'Площадь парковочных мест и кладовок',
-      totalLabelUnits: 'Всего голосов (парковочные места и кладовки)',
+      unitParts: ['c2_park'], unitVoted: 'c2_votedUnits',
+      totalLabelArea: 'Площадь парковочных мест',
+      totalLabelUnits: 'Всего голосов (парковочные места)',
       need: ''
     }
   };
@@ -492,14 +492,13 @@
 
     if (calcBasis === 'units') {
       $('#c_unitsTotal').innerHTML = 'Всего голосов: <b>' + (isNaN(home.total) ? '—' : fmtVotes(home.total)) + '</b>';
-      $('#c2_unitsTotal').innerHTML = 'Всего голосов: <b>' + (isNaN(park.total) ? '—' : fmtVotes(park.total)) + '</b>';
     }
 
-    /* Вопросы с пятым полем «паркинг» или «кладовк» уходят во второй состав. */
+    /* Вопросы с пятым полем «паркинг» уходят во второй состав. */
     var qHome = [], qPark = [];
     H.ROWS($('#c_questions').value).forEach(function (r, i) {
       var item = { row: r, no: i + 1 };
-      (/парк|клад/i.test(r[4] || '') ? qPark : qHome).push(item);
+      (/парк/i.test(r[4] || '') ? qPark : qHome).push(item);
     });
 
     var homeReady = !isNaN(home.total) && home.total > 0 && !isNaN(home.voted);
@@ -519,7 +518,7 @@
     else if (qHome.length) html += '<p class="err">Есть вопросы по управлению домом, но данные о квартирах и нежилых помещениях не заполнены.</p>';
 
     if (parkReady) html += groupBlock(GROUPS.park, park, qPark, qThr, dThr, both);
-    else if (qPark.length) html += '<p class="err">Есть вопросы по паркингу и кладовкам, но данные по ним не заполнены.</p>';
+    else if (qPark.length) html += '<p class="err">Есть вопросы по паркингу, но данные по нему не заполнены.</p>';
 
     html += '<p class="hint" style="margin-top:12px">Доли «за», «против» и «воздержался» рассчитаны от ' +
       (calcBasis === 'units' ? 'числа участвовавших собственников' : 'площади участников') +
@@ -533,7 +532,7 @@
   });
 
   ['c_total', 'c_voted', 'c_flats', 'c_nonres', 'c_votedUnits',
-    'c2_total', 'c2_voted', 'c2_park', 'c2_store', 'c2_votedUnits',
+    'c2_total', 'c2_voted', 'c2_park', 'c2_votedUnits',
     'c_quorum', 'c_decision', 'c_questions']
     .forEach(function (id) { $('#' + id).addEventListener('input', calc); });
 
