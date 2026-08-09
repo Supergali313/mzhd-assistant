@@ -6,7 +6,7 @@
 <title>Ассистент управляющего МЖД — документы и правовая база (РК)</title>
 <meta name="description" content="Рабочее место управляющего многоквартирным жилым домом в Казахстане: генератор документов ОСИ/КСК/ПТ, расчёт кворума и голосов, правовая база, инструкция для Claude Project.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
-<link rel="stylesheet" href="assets/css/styles.css?v=7">
+<link rel="stylesheet" href="assets/css/styles.css?v=9">
 </head>
 <body>
 
@@ -168,7 +168,7 @@
           </div>
           <p class="hint">Какой способ применяется в вашем доме — смотрите в действующей редакции закона и в уставе. Для отдельных вопросов порядок может отличаться.</p>
 
-          <h2 class="card-title">Исходные данные</h2>
+          <h2 class="card-title">Управление домом — квартиры и нежилые помещения</h2>
 
           <div class="basis-group" id="grpArea">
             <label class="field"><span>Общая полезная площадь дома, м²</span>
@@ -184,11 +184,34 @@
               <label class="field"><span>Нежилых помещений</span>
                 <input type="number" step="1" min="0" id="c_nonres" placeholder="напр. 4"></label>
             </div>
-            <div class="sum-line" id="c_unitsTotal">Всего помещений: <b>—</b></div>
+            <div class="sum-line" id="c_unitsTotal">Всего голосов: <b>—</b></div>
             <label class="field"><span>Приняли участие, собственников (голосов)</span>
               <input type="number" step="1" min="0" id="c_votedUnits" placeholder="напр. 62"></label>
           </div>
 
+          <h2 class="card-title">Паркинг и кладовки — отдельный состав</h2>
+          <p class="hint">Заполняйте, только если на собрании рассматривались вопросы содержания парковочных мест и кладовок: по закону их решают собственники этих объектов, отдельно от вопросов управления домом. Оставьте пустым — блок не появится в результате.</p>
+
+          <div class="basis-group" id="grpArea2">
+            <label class="field"><span>Площадь парковочных мест и кладовок, м²</span>
+              <input type="number" step="0.01" min="0" id="c2_total" placeholder="напр. 640.0"></label>
+            <label class="field"><span>Площадь принявших участие, м²</span>
+              <input type="number" step="0.01" min="0" id="c2_voted" placeholder="напр. 400.0"></label>
+          </div>
+
+          <div class="basis-group" id="grpUnits2" hidden>
+            <div class="two-col">
+              <label class="field"><span>Парковочных мест</span>
+                <input type="number" step="1" min="0" id="c2_park" placeholder="напр. 40"></label>
+              <label class="field"><span>Кладовок</span>
+                <input type="number" step="1" min="0" id="c2_store" placeholder="напр. 12"></label>
+            </div>
+            <div class="sum-line" id="c2_unitsTotal">Всего голосов: <b>—</b></div>
+            <label class="field"><span>Приняли участие, собственников (голосов)</span>
+              <input type="number" step="1" min="0" id="c2_votedUnits" placeholder="напр. 30"></label>
+          </div>
+
+          <h2 class="card-title">Пороги</h2>
           <div class="two-col">
             <label class="field"><span>Порог кворума, %<span class="field-hint">от общего числа голосов</span></span>
               <input type="number" step="0.1" min="0" max="100" id="c_quorum" value="50"></label>
@@ -197,9 +220,11 @@
           </div>
 
           <h2 class="card-title">Голоса по вопросам</h2>
-          <p class="hint">Одна строка — один вопрос: <code>Формулировка | за | против | воздержался</code> <span id="c_unitHint">(в м²)</span>.</p>
-          <textarea id="c_questions" rows="6" placeholder="Утверждение сметы на 2026 год | 2400 | 520 | 200
-Избрание председателя | 2900 | 120 | 100"></textarea>
+          <p class="hint">Одна строка — один вопрос: <code>Формулировка | за | против | воздержался</code> <span id="c_unitHint">(в м²)</span>.
+            Чтобы отнести вопрос к паркингу и кладовкам, допишите пятым полем <code>паркинг</code>.</p>
+          <textarea id="c_questions" rows="7" placeholder="Утверждение сметы на 2026 год | 2400 | 520 | 200
+Избрание председателя | 2900 | 120 | 100
+Взнос на содержание паркинга | 300 | 60 | 40 | паркинг"></textarea>
         </form>
 
         <div class="card" id="calcResult">
@@ -379,13 +404,13 @@
   </main>
 </div>
 
-<script src="assets/js/data-profile.js?v=7"></script>
-<script src="assets/js/data-legal.js?v=7"></script>
-<script src="assets/js/data-qa.js?v=7"></script>
-<script src="assets/js/data-ideas.js?v=7"></script>
-<script src="assets/js/data-court.js?v=7"></script>
-<script src="assets/js/data-instruction.js?v=7"></script>
-<script src="assets/js/data-templates.js?v=7"></script>
-<script src="assets/js/app.js?v=7"></script>
+<script src="assets/js/data-profile.js?v=9"></script>
+<script src="assets/js/data-legal.js?v=9"></script>
+<script src="assets/js/data-qa.js?v=9"></script>
+<script src="assets/js/data-ideas.js?v=9"></script>
+<script src="assets/js/data-court.js?v=9"></script>
+<script src="assets/js/data-instruction.js?v=9"></script>
+<script src="assets/js/data-templates.js?v=9"></script>
+<script src="assets/js/app.js?v=9"></script>
 </body>
 </html>

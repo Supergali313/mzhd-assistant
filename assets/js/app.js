@@ -395,65 +395,63 @@
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-checked', String(on));
     });
-    $('#grpArea').hidden = basis !== 'area';
-    $('#grpUnits').hidden = basis !== 'units';
+    ['#grpArea', '#grpArea2'].forEach(function (s) { $(s).hidden = basis !== 'area'; });
+    ['#grpUnits', '#grpUnits2'].forEach(function (s) { $(s).hidden = basis !== 'units'; });
     $('#c_unitHint').textContent = basis === 'units' ? '(в голосах)' : '(в м²)';
     calc();
   }
 
-  /** Итоги по выбранной базе: общее число голосов и число голосов участников. */
-  function calcBase() {
+  /* Два самостоятельных состава голосующих:
+     'home' — собственники квартир и нежилых помещений (вопросы управления домом);
+     'park' — собственники парковочных мест и кладовок (вопросы их содержания). */
+  var GROUPS = {
+    home: {
+      title: 'Управление домом — квартиры и нежилые помещения',
+      areaTotal: 'c_total', areaVoted: 'c_voted',
+      unitParts: ['c_flats', 'c_nonres'], unitVoted: 'c_votedUnits', unitSum: 'c_unitsTotal',
+      totalLabelArea: 'Общая площадь дома',
+      totalLabelUnits: 'Всего голосов (квартиры и нежилые)',
+      need: 'Заполните данные по квартирам и нежилым помещениям.'
+    },
+    park: {
+      title: 'Паркинг и кладовки',
+      areaTotal: 'c2_total', areaVoted: 'c2_voted',
+      unitParts: ['c2_park', 'c2_store'], unitVoted: 'c2_votedUnits', unitSum: 'c2_unitsTotal',
+      totalLabelArea: 'Площадь парковочных мест и кладовок',
+      totalLabelUnits: 'Всего голосов (парковочные места и кладовки)',
+      need: ''
+    }
+  };
+
+  function groupData(g) {
     if (calcBasis === 'units') {
-      var flats = H.num($('#c_flats').value);
-      var nonres = H.num($('#c_nonres').value);
-      var total = (isNaN(flats) ? 0 : flats) + (isNaN(nonres) ? 0 : nonres);
-      if (isNaN(flats) && isNaN(nonres)) total = NaN;
-      return {
-        total: total,
-        voted: H.num($('#c_votedUnits').value),
-        totalLabel: 'Всего помещений (квартиры и нежилые)',
-        votedLabel: 'Приняли участие собственников',
-        need: 'Укажите количество квартир и нежилых помещений, а также число участвовавших собственников.'
-      };
+      var parts = g.unitParts.map(function (id) { return H.num($('#' + id).value); });
+      var any = parts.some(function (n) { return !isNaN(n); });
+      var total = any ? parts.reduce(function (a, n) { return a + (isNaN(n) ? 0 : n); }, 0) : NaN;
+      return { total: total, voted: H.num($('#' + g.unitVoted).value), totalLabel: g.totalLabelUnits };
     }
     return {
-      total: H.num($('#c_total').value),
-      voted: H.num($('#c_voted').value),
-      totalLabel: 'Общая площадь дома',
-      votedLabel: 'Приняли участие',
-      need: 'Укажите общую площадь дома и площадь участников голосования.'
+      total: H.num($('#' + g.areaTotal).value),
+      voted: H.num($('#' + g.areaVoted).value),
+      totalLabel: g.totalLabelArea
     };
   }
 
-  function calc() {
-    var b = calcBase();
-    var total = b.total, voted = b.voted;
-    var qThr = H.num($('#c_quorum').value);
-    var dThr = H.num($('#c_decision').value);
-    var rows = H.ROWS($('#c_questions').value);
-    var out = $('#calcOut');
-
-    if (calcBasis === 'units') {
-      $('#c_unitsTotal').innerHTML = 'Всего помещений: <b>' +
-        (isNaN(total) ? '—' : fmtVotes(total)) + '</b>';
-    }
-
-    if (isNaN(total) || total <= 0 || isNaN(voted)) {
-      out.innerHTML = '<p class="muted">' + H.esc(b.need) + '</p>';
-      return;
-    }
-
+  /** Блок результата по одному составу голосующих. */
+  function groupBlock(g, d, rows, qThr, dThr, withHeading) {
+    var total = d.total, voted = d.voted;
     var pct = voted / total * 100;
     var quorum = !isNaN(qThr) && pct >= qThr;
 
-    var html = '<div class="metric"><span>' + H.esc(b.totalLabel) + '</span><b>' + withUnit(total) + '</b></div>' +
-      '<div class="metric"><span>' + H.esc(b.votedLabel) + '</span><b>' + withUnit(voted) + '</b></div>' +
+    var html = (withHeading ? '<h3 class="result-group">' + H.esc(g.title) + '</h3>' : '') +
+      '<div class="metric"><span>' + H.esc(d.totalLabel) + '</span><b>' + withUnit(total) + '</b></div>' +
+      '<div class="metric"><span>Приняли участие</span><b>' + withUnit(voted) + '</b></div>' +
       '<div class="metric"><span>Доля участников</span><b>' + pct.toFixed(2) + ' %</b></div>' +
       '<div class="metric"><span>Кворум (порог ' + (isNaN(qThr) ? '—' : qThr + ' %') + ')</span>' +
       '<span class="badge ' + (quorum ? 'badge-ok">имеется' : 'badge-no">отсутствует') + '</span></div>';
 
     if (voted > total) {
-      html += '<p class="err">Ошибка: участников больше, чем всего голосов в доме (' +
+      html += '<p class="err">Ошибка: участников больше, чем всего голосов в этом составе (' +
         withUnit(voted) + ' против ' + withUnit(total) + ').</p>';
     }
 
@@ -461,7 +459,8 @@
       html += '<table class="calc-table"><thead><tr><th>Вопрос</th><th class="num">За</th><th class="num">Против</th>' +
         '<th class="num">Возд.</th><th class="num">Итог</th></tr></thead><tbody>';
       var warnings = [];
-      rows.forEach(function (r, i) {
+      rows.forEach(function (item) {
+        var r = item.row;
         var za = H.num(r[1]), pr = H.num(r[2]), vo = H.num(r[3]);
         var sum = (isNaN(za) ? 0 : za) + (isNaN(pr) ? 0 : pr) + (isNaN(vo) ? 0 : vo);
         var share = voted > 0 ? (isNaN(za) ? 0 : za) / voted * 100 : 0;
@@ -472,16 +471,59 @@
           '<td class="num">' + (isNaN(vo) ? '—' : (vo / voted * 100).toFixed(2) + ' %') + '</td>' +
           '<td class="num"><span class="badge ' + (passed ? 'badge-ok">принято' : 'badge-no">не принято') + '</span></td></tr>';
         if (sum > 0 && Math.abs(sum - voted) > eps()) {
-          warnings.push('Вопрос ' + (i + 1) + ': сумма голосов ' + withUnit(sum) +
+          warnings.push('Вопрос ' + item.no + ': сумма голосов ' + withUnit(sum) +
             ' не совпадает с числом голосов участников ' + withUnit(voted) +
             ' (разница ' + withUnit(sum - voted) + ').');
         }
       });
       html += '</tbody></table>';
       warnings.forEach(function (w) { html += '<p class="err">' + H.esc(w) + '</p>'; });
-      html += '<p class="hint" style="margin-top:10px">Доли «за», «против» и «воздержался» рассчитаны от ' +
-        (calcBasis === 'units' ? 'числа участвовавших собственников' : 'площади участников голосования') + '.</p>';
     }
+    return html;
+  }
+
+  function calc() {
+    var qThr = H.num($('#c_quorum').value);
+    var dThr = H.num($('#c_decision').value);
+    var out = $('#calcOut');
+
+    var home = groupData(GROUPS.home);
+    var park = groupData(GROUPS.park);
+
+    if (calcBasis === 'units') {
+      $('#c_unitsTotal').innerHTML = 'Всего голосов: <b>' + (isNaN(home.total) ? '—' : fmtVotes(home.total)) + '</b>';
+      $('#c2_unitsTotal').innerHTML = 'Всего голосов: <b>' + (isNaN(park.total) ? '—' : fmtVotes(park.total)) + '</b>';
+    }
+
+    /* Вопросы с пятым полем «паркинг» или «кладовк» уходят во второй состав. */
+    var qHome = [], qPark = [];
+    H.ROWS($('#c_questions').value).forEach(function (r, i) {
+      var item = { row: r, no: i + 1 };
+      (/парк|клад/i.test(r[4] || '') ? qPark : qHome).push(item);
+    });
+
+    var homeReady = !isNaN(home.total) && home.total > 0 && !isNaN(home.voted);
+    var parkReady = !isNaN(park.total) && park.total > 0 && !isNaN(park.voted);
+
+    if (!homeReady && !parkReady) {
+      out.innerHTML = '<p class="muted">' + (calcBasis === 'units'
+        ? 'Укажите количество помещений и число участвовавших собственников.'
+        : 'Укажите общую площадь дома и площадь участников голосования.') + '</p>';
+      return;
+    }
+
+    var both = homeReady && parkReady;
+    var html = '';
+
+    if (homeReady) html += groupBlock(GROUPS.home, home, qHome, qThr, dThr, both);
+    else if (qHome.length) html += '<p class="err">Есть вопросы по управлению домом, но данные о квартирах и нежилых помещениях не заполнены.</p>';
+
+    if (parkReady) html += groupBlock(GROUPS.park, park, qPark, qThr, dThr, both);
+    else if (qPark.length) html += '<p class="err">Есть вопросы по паркингу и кладовкам, но данные по ним не заполнены.</p>';
+
+    html += '<p class="hint" style="margin-top:12px">Доли «за», «против» и «воздержался» рассчитаны от ' +
+      (calcBasis === 'units' ? 'числа участвовавших собственников' : 'площади участников') +
+      ' внутри своего состава голосующих.</p>';
 
     out.innerHTML = html;
   }
@@ -490,7 +532,9 @@
     b.addEventListener('click', function () { setBasis(b.dataset.basis); });
   });
 
-  ['c_total', 'c_voted', 'c_flats', 'c_nonres', 'c_votedUnits', 'c_quorum', 'c_decision', 'c_questions']
+  ['c_total', 'c_voted', 'c_flats', 'c_nonres', 'c_votedUnits',
+    'c2_total', 'c2_voted', 'c2_park', 'c2_store', 'c2_votedUnits',
+    'c_quorum', 'c_decision', 'c_questions']
     .forEach(function (id) { $('#' + id).addEventListener('input', calc); });
 
   /* ---------------- Консультации ---------------- */

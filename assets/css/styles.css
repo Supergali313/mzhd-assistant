@@ -336,6 +336,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .sum-line b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 .calc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.result-group {
+  font-size: 13px; font-weight: 700; letter-spacing: .03em;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 7px 12px; border-radius: 7px; margin: 18px 0 6px;
+}
+.calc-out .result-group:first-child { margin-top: 0; }
 .calc-out .metric { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .calc-out .metric:last-child { border-bottom: none; }
 .calc-out .metric b { font-variant-numeric: tabular-nums; }
