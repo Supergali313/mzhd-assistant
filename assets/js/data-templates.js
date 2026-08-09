@@ -55,6 +55,19 @@
     return (neg ? '−' : '') + parts[0] + ',' + parts[1];
   }
 
+  /** Целое с разделителями разрядов — для количества голосов и помещений. */
+  function n0(n) {
+    if (isNaN(n)) return '___';
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function plural(n, one, few, many) {
+    var a = Math.abs(Math.round(n)) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    return b === 1 ? one : many;
+  }
+
   function fmt(x, suffix) {
     var n = num(x);
     if (isNaN(n)) return '<span class="ph">___</span>';
@@ -179,10 +192,14 @@
         { id: 'meetingDate', label: 'Дата собрания', type: 'date' },
         { id: 'meetingPlace', label: 'Место проведения', placeholder: 'двор дома, у подъезда № 1' },
         { id: 'meetingForm', label: 'Форма голосования', type: 'select', options: MEETING_FORMS },
+        { id: 'countBasis', label: 'Способ подсчёта голосов', type: 'select',
+          options: ['по площади помещений', 'по количеству собственников помещений'],
+          hint: 'Проверьте в уставе и актуальной редакции закона' },
         { id: 'totalArea', label: 'Общая полезная площадь дома, м²', type: 'number', fromProfile: 'totalArea' },
         { id: 'presentArea', label: 'Площадь участвовавших в голосовании, м²', type: 'number' },
-        { id: 'presentCount', label: 'Количество участников, чел.', type: 'number' },
-        { id: 'quorumPct', label: 'Порог кворума, % от общей площади', type: 'number', value: '50' },
+        { id: 'totalUnits', label: 'Всего помещений в доме (квартиры и нежилые)', type: 'number', fromProfile: 'units' },
+        { id: 'presentCount', label: 'Приняли участие собственников (голосов)', type: 'number' },
+        { id: 'quorumPct', label: 'Порог кворума, % от общего числа голосов', type: 'number', value: '50' },
         { id: 'chair', label: 'Председатель собрания', placeholder: 'Ф.И.О.' },
         { id: 'secretary', label: 'Секретарь собрания', placeholder: 'Ф.И.О.' },
         { id: 'counters', label: 'Счётная комиссия', type: 'textarea', rows: 3, placeholder: 'Ф.И.О., кв. №' },
@@ -196,17 +213,24 @@
       ],
       render: function (c) {
         var p = c.p, f = c.f;
-        var total = num(f.totalArea) || num(p.totalArea);
-        var present = num(f.presentArea);
+        var byUnits = /количеству/.test(f.countBasis || '');
+        var unit = byUnits ? 'голосов' : 'м²';
+        var total = byUnits ? (num(f.totalUnits) || num(p.units)) : (num(f.totalArea) || num(p.totalArea));
+        var present = byUnits ? num(f.presentCount) : num(f.presentArea);
         var thr = isNaN(num(f.quorumPct)) ? 50 : num(f.quorumPct);
         var pct = (!isNaN(total) && total > 0 && !isNaN(present)) ? present / total * 100 : NaN;
+        var baseWord = byUnits ? 'общего числа помещений в доме' : 'общей полезной площади дома';
+        var fmtV = byUnits ? n0 : money;
 
         var quorumLine;
         if (isNaN(pct)) {
-          quorumLine = 'Кворум: <span class="ph">___ %</span> — укажите общую площадь дома и площадь участников.';
+          quorumLine = 'Кворум: <span class="ph">___ %</span> — заполните ' +
+            (byUnits ? 'количество помещений в доме и число участвовавших собственников' : 'общую площадь дома и площадь участников') + '.';
         } else {
-          quorumLine = 'Приняли участие собственники, обладающие ' + money(present) + ' м² (' + pct.toFixed(2) +
-            ' % от общей полезной площади дома). Кворум ' +
+          quorumLine = (byUnits
+            ? 'Приняли участие собственники ' + n0(present) + ' ' + plural(present, 'помещения', 'помещений', 'помещений')
+            : 'Приняли участие собственники, обладающие ' + money(present) + ' м²') +
+            ' (' + pct.toFixed(2) + ' % от ' + baseWord + '). Кворум ' +
             (pct >= thr ? '<strong>имеется</strong>' : '<span class="warn">отсутствует</span>') +
             ' (порог — ' + money(thr) + ' %).';
         }
@@ -222,21 +246,22 @@
             var base = !isNaN(present) && present > 0 ? present : sum;
             function cell(x) {
               if (isNaN(x)) return '<td class="num"><span class="ph">___</span></td><td class="num"><span class="ph">___</span></td>';
-              return '<td class="num">' + money(x) + '</td><td class="num">' +
+              return '<td class="num">' + fmtV(x) + '</td><td class="num">' +
                 (base > 0 ? (x / base * 100).toFixed(2) + ' %' : '—') + '</td>';
             }
             var mismatch = '';
-            if (!isNaN(present) && present > 0 && sum > 0 && Math.abs(sum - present) > 0.01) {
-              mismatch = '<p class="small warn">Внимание: сумма голосов по вопросу (' + money(sum) +
-                ' м²) не совпадает с площадью участников голосования (' + money(present) + ' м²). Разница ' +
-                money(sum - present) + ' м².</p>';
+            if (!isNaN(present) && present > 0 && sum > 0 && Math.abs(sum - present) > (byUnits ? 0.5 : 0.01)) {
+              mismatch = '<p class="small warn">Внимание: сумма голосов по вопросу (' + fmtV(sum) +
+                ' ' + unit + ') не совпадает с числом голосов участников (' + fmtV(present) + ' ' + unit +
+                '). Разница ' + fmtV(sum - present) + ' ' + unit + '.</p>';
             }
             return '<h3>Вопрос № ' + (i + 1) + '. ' + esc(r[0] || '[формулировка вопроса]') + '</h3>' +
-              '<table><thead><tr><th>Результат голосования</th><th class="num">Площадь, м²</th><th class="num">Доля</th></tr></thead><tbody>' +
+              '<table><thead><tr><th>Результат голосования</th><th class="num">' +
+              (byUnits ? 'Голосов' : 'Площадь, м²') + '</th><th class="num">Доля</th></tr></thead><tbody>' +
               '<tr><td>«За»</td>' + cell(za) + '</tr>' +
               '<tr><td>«Против»</td>' + cell(pr) + '</tr>' +
               '<tr><td>«Воздержался»</td>' + cell(vo) + '</tr>' +
-              '<tr class="total"><td>Всего учтено</td><td class="num">' + money(sum) + '</td><td class="num">' +
+              '<tr class="total"><td>Всего учтено</td><td class="num">' + fmtV(sum) + '</td><td class="num">' +
               (base > 0 ? (sum / base * 100).toFixed(2) + ' %' : '—') + '</td></tr>' +
               '</tbody></table>' + mismatch;
           }).join('');
@@ -248,9 +273,14 @@
           '<div class="row"><span>' + place(p, f) + '</span><span>' + D(f.meetingDate) + '</span></div>' +
           '<p><strong>Адрес дома:</strong> ' + V(p.address, '[адрес дома]') + '<br>' +
           '<strong>Место проведения:</strong> ' + V(f.meetingPlace, '[место проведения]') + '<br>' +
-          '<strong>Форма голосования:</strong> ' + V(f.meetingForm, MEETING_FORMS[0]) + '</p>' +
-          '<p><strong>Общая полезная площадь дома:</strong> ' + fmt(isNaN(total) ? '' : total, 'м²') + '<br>' +
-          '<strong>Приняли участие:</strong> ' + V(f.presentCount, '___') + ' собственников</p>' +
+          '<strong>Форма голосования:</strong> ' + V(f.meetingForm, MEETING_FORMS[0]) + '<br>' +
+          '<strong>Подсчёт голосов:</strong> ' + V(f.countBasis, 'по площади помещений') + '</p>' +
+          '<p><strong>Общая полезная площадь дома:</strong> ' + fmt(f.totalArea || p.totalArea, 'м²') + '<br>' +
+          '<strong>Всего помещений в доме (квартиры и нежилые):</strong> ' + V(f.totalUnits || p.units, '___') + '<br>' +
+          '<strong>Приняли участие:</strong> ' +
+          (isNaN(num(f.presentCount))
+            ? '<span class="ph">___</span> собственников'
+            : n0(num(f.presentCount)) + ' ' + plural(num(f.presentCount), 'собственник', 'собственника', 'собственников')) + '</p>' +
           '<p>' + quorumLine + '</p>' +
           '<p><strong>Председатель собрания:</strong> ' + V(f.chair || p.chairman, '[Ф.И.О.]') + '<br>' +
           '<strong>Секретарь собрания:</strong> ' + V(f.secretary, '[Ф.И.О.]') + '</p>' +

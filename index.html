@@ -6,7 +6,7 @@
 <title>Ассистент управляющего МЖД — документы и правовая база (РК)</title>
 <meta name="description" content="Рабочее место управляющего многоквартирным жилым домом в Казахстане: генератор документов ОСИ/КСК/ПТ, расчёт кворума и голосов, правовая база, инструкция для Claude Project.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
-<link rel="stylesheet" href="assets/css/styles.css?v=4">
+<link rel="stylesheet" href="assets/css/styles.css?v=7">
 </head>
 <body>
 
@@ -154,23 +154,50 @@
     <section class="view" id="view-calc">
       <div class="view-head">
         <h1>Кворум и подсчёт голосов</h1>
-        <p class="lede">Арифметическая проверка собрания: доли голосов считаются по площади помещений. Пороги вынесены в поля — подставьте значения из актуальной редакции закона и устава.</p>
+        <p class="lede">Арифметическая проверка собрания по любой из двух баз: по площади помещений или по количеству собственников — от общего числа квартир и нежилых помещений. Пороги вынесены в поля: подставьте значения из актуальной редакции закона и устава.</p>
       </div>
 
       <div class="calc-grid">
         <form class="card" id="calcForm" autocomplete="off">
+          <h2 class="card-title">Способ подсчёта</h2>
+          <div class="mode-switch" id="calcMode" role="radiogroup" aria-label="Способ подсчёта голосов">
+            <button type="button" class="mode-btn is-active" data-basis="area" role="radio" aria-checked="true">
+              По площади помещений<small>голос пропорционален площади, м²</small></button>
+            <button type="button" class="mode-btn" data-basis="units" role="radio" aria-checked="false">
+              По количеству собственников<small>один голос от помещения</small></button>
+          </div>
+          <p class="hint">Какой способ применяется в вашем доме — смотрите в действующей редакции закона и в уставе. Для отдельных вопросов порядок может отличаться.</p>
+
           <h2 class="card-title">Исходные данные</h2>
-          <label class="field"><span>Общая полезная площадь дома, м²</span>
-            <input type="number" step="0.01" min="0" id="c_total" placeholder="напр. 5480.5"></label>
-          <label class="field"><span>Площадь принявших участие в голосовании, м²</span>
-            <input type="number" step="0.01" min="0" id="c_voted" placeholder="напр. 3120.0"></label>
-          <label class="field"><span>Порог кворума, % от общей площади</span>
-            <input type="number" step="0.1" min="0" max="100" id="c_quorum" value="50"></label>
-          <label class="field"><span>Порог принятия решения, % от участвовавших</span>
-            <input type="number" step="0.1" min="0" max="100" id="c_decision" value="50"></label>
+
+          <div class="basis-group" id="grpArea">
+            <label class="field"><span>Общая полезная площадь дома, м²</span>
+              <input type="number" step="0.01" min="0" id="c_total" placeholder="напр. 5480.5"></label>
+            <label class="field"><span>Площадь принявших участие в голосовании, м²</span>
+              <input type="number" step="0.01" min="0" id="c_voted" placeholder="напр. 3120.0"></label>
+          </div>
+
+          <div class="basis-group" id="grpUnits" hidden>
+            <div class="two-col">
+              <label class="field"><span>Квартир в доме</span>
+                <input type="number" step="1" min="0" id="c_flats" placeholder="напр. 96"></label>
+              <label class="field"><span>Нежилых помещений</span>
+                <input type="number" step="1" min="0" id="c_nonres" placeholder="напр. 4"></label>
+            </div>
+            <div class="sum-line" id="c_unitsTotal">Всего помещений: <b>—</b></div>
+            <label class="field"><span>Приняли участие, собственников (голосов)</span>
+              <input type="number" step="1" min="0" id="c_votedUnits" placeholder="напр. 62"></label>
+          </div>
+
+          <div class="two-col">
+            <label class="field"><span>Порог кворума, %<span class="field-hint">от общего числа голосов</span></span>
+              <input type="number" step="0.1" min="0" max="100" id="c_quorum" value="50"></label>
+            <label class="field"><span>Порог решения, %<span class="field-hint">от участвовавших</span></span>
+              <input type="number" step="0.1" min="0" max="100" id="c_decision" value="50"></label>
+          </div>
 
           <h2 class="card-title">Голоса по вопросам</h2>
-          <p class="hint">Одна строка — один вопрос, в формате: <code>Формулировка | за | против | воздержался</code> (в м²).</p>
+          <p class="hint">Одна строка — один вопрос: <code>Формулировка | за | против | воздержался</code> <span id="c_unitHint">(в м²)</span>.</p>
           <textarea id="c_questions" rows="6" placeholder="Утверждение сметы на 2026 год | 2400 | 520 | 200
 Избрание председателя | 2900 | 120 | 100"></textarea>
         </form>
@@ -352,13 +379,13 @@
   </main>
 </div>
 
-<script src="assets/js/data-profile.js?v=4"></script>
-<script src="assets/js/data-legal.js?v=4"></script>
-<script src="assets/js/data-qa.js?v=4"></script>
-<script src="assets/js/data-ideas.js?v=4"></script>
-<script src="assets/js/data-court.js?v=4"></script>
-<script src="assets/js/data-instruction.js?v=4"></script>
-<script src="assets/js/data-templates.js?v=4"></script>
-<script src="assets/js/app.js?v=4"></script>
+<script src="assets/js/data-profile.js?v=7"></script>
+<script src="assets/js/data-legal.js?v=7"></script>
+<script src="assets/js/data-qa.js?v=7"></script>
+<script src="assets/js/data-ideas.js?v=7"></script>
+<script src="assets/js/data-court.js?v=7"></script>
+<script src="assets/js/data-instruction.js?v=7"></script>
+<script src="assets/js/data-templates.js?v=7"></script>
+<script src="assets/js/app.js?v=7"></script>
 </body>
 </html>

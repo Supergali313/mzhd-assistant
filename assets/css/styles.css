@@ -205,7 +205,7 @@ h1, h2, h3 { line-height: 1.25; margin: 0; }
 /* ---------- Fields ---------- */
 .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
 .field > span { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
-.field-hint { font-size: 11.5px; color: var(--text-faint); font-weight: 400; }
+.field-hint { font-size: 11.5px; color: var(--text-faint); font-weight: 400; margin-left: 5px; }
 
 input[type="text"], input[type="number"], input[type="date"], input[type="search"], select, textarea {
   width: 100%;
@@ -312,6 +312,29 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .paper .warn { color: #b03030; font-weight: 700; }
 
 /* ---------- Калькулятор ---------- */
+.mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.mode-btn {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 10px 13px; border: 1px solid var(--border-strong); border-radius: 9px;
+  background: var(--surface); color: var(--text-dim);
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.mode-btn small { font-size: 11.5px; font-weight: 400; color: var(--text-faint); line-height: 1.35; }
+.mode-btn:hover { border-color: var(--accent); }
+.mode-btn.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.mode-btn.is-active small { color: var(--accent); opacity: .8; }
+@media (max-width: 520px) { .mode-switch { grid-template-columns: 1fr; } }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+@media (max-width: 460px) { .two-col { grid-template-columns: 1fr; } }
+
+.sum-line {
+  font-size: 13px; color: var(--text-dim);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px 12px; margin-bottom: 13px;
+}
+.sum-line b { color: var(--text); font-variant-numeric: tabular-nums; }
+
 .calc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 .calc-out .metric { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .calc-out .metric:last-child { border-bottom: none; }

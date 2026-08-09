@@ -363,30 +363,98 @@
   }
 
   /* ---------------- Кворум и голоса ---------------- */
+  var calcBasis = 'area';   // 'area' — по площади помещений, 'units' — по количеству собственников
+
+  /* Целые голоса округлять незачем — сравниваем с допуском в зависимости от базы. */
+  function eps() { return calcBasis === 'units' ? 0.5 : 0.01; }
+
+  function fmtVotes(n) {
+    if (calcBasis !== 'units') return H.money(n);
+    var s = String(Math.round(Math.abs(n) * 100) / 100).replace('.', ',');
+    return (n < 0 ? '−' : '') + s;
+  }
+
+  function plural(n, one, few, many) {
+    var a = Math.abs(Math.round(n)) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    return b === 1 ? one : many;
+  }
+
+  function unitName(n) {
+    return calcBasis === 'units' ? plural(n, 'голос', 'голоса', 'голосов') : 'м²';
+  }
+
+  /** «62 голоса» / «3 120,00 м²» */
+  function withUnit(n) { return fmtVotes(n) + ' ' + unitName(n); }
+
+  function setBasis(basis) {
+    calcBasis = basis;
+    $$('.mode-btn', $('#calcMode')).forEach(function (b) {
+      var on = b.dataset.basis === basis;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-checked', String(on));
+    });
+    $('#grpArea').hidden = basis !== 'area';
+    $('#grpUnits').hidden = basis !== 'units';
+    $('#c_unitHint').textContent = basis === 'units' ? '(в голосах)' : '(в м²)';
+    calc();
+  }
+
+  /** Итоги по выбранной базе: общее число голосов и число голосов участников. */
+  function calcBase() {
+    if (calcBasis === 'units') {
+      var flats = H.num($('#c_flats').value);
+      var nonres = H.num($('#c_nonres').value);
+      var total = (isNaN(flats) ? 0 : flats) + (isNaN(nonres) ? 0 : nonres);
+      if (isNaN(flats) && isNaN(nonres)) total = NaN;
+      return {
+        total: total,
+        voted: H.num($('#c_votedUnits').value),
+        totalLabel: 'Всего помещений (квартиры и нежилые)',
+        votedLabel: 'Приняли участие собственников',
+        need: 'Укажите количество квартир и нежилых помещений, а также число участвовавших собственников.'
+      };
+    }
+    return {
+      total: H.num($('#c_total').value),
+      voted: H.num($('#c_voted').value),
+      totalLabel: 'Общая площадь дома',
+      votedLabel: 'Приняли участие',
+      need: 'Укажите общую площадь дома и площадь участников голосования.'
+    };
+  }
+
   function calc() {
-    var total = H.num($('#c_total').value);
-    var voted = H.num($('#c_voted').value);
+    var b = calcBase();
+    var total = b.total, voted = b.voted;
     var qThr = H.num($('#c_quorum').value);
     var dThr = H.num($('#c_decision').value);
     var rows = H.ROWS($('#c_questions').value);
     var out = $('#calcOut');
 
+    if (calcBasis === 'units') {
+      $('#c_unitsTotal').innerHTML = 'Всего помещений: <b>' +
+        (isNaN(total) ? '—' : fmtVotes(total)) + '</b>';
+    }
+
     if (isNaN(total) || total <= 0 || isNaN(voted)) {
-      out.innerHTML = '<p class="muted">Укажите общую площадь дома и площадь участников голосования.</p>';
+      out.innerHTML = '<p class="muted">' + H.esc(b.need) + '</p>';
       return;
     }
 
     var pct = voted / total * 100;
     var quorum = !isNaN(qThr) && pct >= qThr;
 
-    var html = '<div class="metric"><span>Общая площадь дома</span><b>' + H.money(total) + ' м²</b></div>' +
-      '<div class="metric"><span>Приняли участие</span><b>' + H.money(voted) + ' м²</b></div>' +
+    var html = '<div class="metric"><span>' + H.esc(b.totalLabel) + '</span><b>' + withUnit(total) + '</b></div>' +
+      '<div class="metric"><span>' + H.esc(b.votedLabel) + '</span><b>' + withUnit(voted) + '</b></div>' +
       '<div class="metric"><span>Доля участников</span><b>' + pct.toFixed(2) + ' %</b></div>' +
       '<div class="metric"><span>Кворум (порог ' + (isNaN(qThr) ? '—' : qThr + ' %') + ')</span>' +
       '<span class="badge ' + (quorum ? 'badge-ok">имеется' : 'badge-no">отсутствует') + '</span></div>';
 
     if (voted > total) {
-      html += '<p class="err">Ошибка: площадь участников больше общей площади дома.</p>';
+      html += '<p class="err">Ошибка: участников больше, чем всего голосов в доме (' +
+        withUnit(voted) + ' против ' + withUnit(total) + ').</p>';
     }
 
     if (rows.length) {
@@ -403,22 +471,27 @@
           '<td class="num">' + (isNaN(pr) ? '—' : (pr / voted * 100).toFixed(2) + ' %') + '</td>' +
           '<td class="num">' + (isNaN(vo) ? '—' : (vo / voted * 100).toFixed(2) + ' %') + '</td>' +
           '<td class="num"><span class="badge ' + (passed ? 'badge-ok">принято' : 'badge-no">не принято') + '</span></td></tr>';
-        if (sum > 0 && Math.abs(sum - voted) > 0.01) {
-          warnings.push('Вопрос ' + (i + 1) + ': сумма голосов ' + H.money(sum) +
-            ' м² не совпадает с площадью участников ' + H.money(voted) + ' м² (разница ' + H.money(sum - voted) + ' м²).');
+        if (sum > 0 && Math.abs(sum - voted) > eps()) {
+          warnings.push('Вопрос ' + (i + 1) + ': сумма голосов ' + withUnit(sum) +
+            ' не совпадает с числом голосов участников ' + withUnit(voted) +
+            ' (разница ' + withUnit(sum - voted) + ').');
         }
       });
       html += '</tbody></table>';
       warnings.forEach(function (w) { html += '<p class="err">' + H.esc(w) + '</p>'; });
-      html += '<p class="hint" style="margin-top:10px">Доли «за», «против» и «воздержался» рассчитаны от площади участников голосования.</p>';
+      html += '<p class="hint" style="margin-top:10px">Доли «за», «против» и «воздержался» рассчитаны от ' +
+        (calcBasis === 'units' ? 'числа участвовавших собственников' : 'площади участников голосования') + '.</p>';
     }
 
     out.innerHTML = html;
   }
 
-  ['c_total', 'c_voted', 'c_quorum', 'c_decision', 'c_questions'].forEach(function (id) {
-    $('#' + id).addEventListener('input', calc);
+  $$('.mode-btn', $('#calcMode')).forEach(function (b) {
+    b.addEventListener('click', function () { setBasis(b.dataset.basis); });
   });
+
+  ['c_total', 'c_voted', 'c_flats', 'c_nonres', 'c_votedUnits', 'c_quorum', 'c_decision', 'c_questions']
+    .forEach(function (id) { $('#' + id).addEventListener('input', calc); });
 
   /* ---------------- Консультации ---------------- */
   var qaCat = 'all';
@@ -809,6 +882,9 @@
   buildIdeas();
   buildSources();
   buildLegal();
+
+  if (profile.totalArea && !$('#c_total').value) $('#c_total').value = profile.totalArea;
+  if (profile.units && !$('#c_flats').value) $('#c_flats').value = profile.units;
   buildInstruction();
   buildAbout();
   calc();
