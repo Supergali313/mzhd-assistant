@@ -186,7 +186,7 @@
       id: 'protocol',
       group: 'Общее собрание',
       title: 'Протокол общего собрания собственников',
-      note: 'Итоги считаются по площади помещений. Приложение проверяет кворум и сумму голосов по каждому вопросу — расхождения подсвечиваются.',
+      note: 'Приложение проверяет кворум и сумму голосов по каждому вопросу — расхождения подсвечиваются. Вопросы содержания парковочных мест и кладовок выносятся в отдельный раздел: их решает свой состав собственников.',
       fields: [
         { id: 'protocolNo', label: 'Номер протокола', placeholder: '3' },
         { id: 'meetingDate', label: 'Дата собрания', type: 'date' },
@@ -208,6 +208,18 @@
           placeholder: 'Утверждение сметы расходов на 2026 год | 2400 | 520 | 200\nИзбрание председателя ОСИ | 2900 | 120 | 100' },
         { id: 'decisions', label: 'Принятые решения (по пунктам)', type: 'textarea', rows: 5,
           placeholder: 'Утвердить смету расходов на 2026 год в сумме ___ тенге.\nИзбрать председателем ОСИ ___.' },
+
+        { id: 'parkTotalArea', label: 'Паркинг и кладовки: общая площадь, м²', type: 'number',
+          hint: 'Заполняйте, только если рассматривались вопросы их содержания' },
+        { id: 'parkPresentArea', label: 'Паркинг и кладовки: площадь участвовавших, м²', type: 'number' },
+        { id: 'parkTotalUnits', label: 'Паркинг и кладовки: всего объектов', type: 'number' },
+        { id: 'parkPresentCount', label: 'Паркинг и кладовки: приняли участие собственников', type: 'number' },
+        { id: 'parkVotes', label: 'Паркинг и кладовки: вопросы и голоса', type: 'textarea', rows: 4,
+          hint: 'Формат строки: вопрос | за | против | воздержался',
+          placeholder: 'Утверждение текущего взноса на содержание парковочных мест | 30 | 6 | 4\nЦелевой взнос на ремонт ворот паркинга | 28 | 8 | 4' },
+        { id: 'parkDecisions', label: 'Паркинг и кладовки: принятые решения', type: 'textarea', rows: 3,
+          placeholder: 'Утвердить текущий взнос на содержание парковочных мест в размере ___ тенге.' },
+
         { id: 'attachments', label: 'Приложения', type: 'textarea', rows: 3,
           placeholder: 'Список зарегистрированных участников на ___ л.\nБюллетени голосования — ___ шт.' }
       ],
@@ -215,82 +227,135 @@
         var p = c.p, f = c.f;
         var byUnits = /количеству/.test(f.countBasis || '');
         var unit = byUnits ? 'голосов' : 'м²';
-        var total = byUnits ? (num(f.totalUnits) || num(p.units)) : (num(f.totalArea) || num(p.totalArea));
-        var present = byUnits ? num(f.presentCount) : num(f.presentArea);
         var thr = isNaN(num(f.quorumPct)) ? 50 : num(f.quorumPct);
-        var pct = (!isNaN(total) && total > 0 && !isNaN(present)) ? present / total * 100 : NaN;
-        var baseWord = byUnits ? 'общего числа помещений в доме' : 'общей полезной площади дома';
         var fmtV = byUnits ? n0 : money;
+        var tol = byUnits ? 0.5 : 0.01;
 
-        var quorumLine;
-        if (isNaN(pct)) {
-          quorumLine = 'Кворум: <span class="ph">___ %</span> — заполните ' +
-            (byUnits ? 'количество помещений в доме и число участвовавших собственников' : 'общую площадь дома и площадь участников') + '.';
-        } else {
-          quorumLine = (byUnits
-            ? 'Приняли участие собственники ' + n0(present) + ' ' + plural(present, 'помещения', 'помещений', 'помещений')
-            : 'Приняли участие собственники, обладающие ' + money(present) + ' м²') +
-            ' (' + pct.toFixed(2) + ' % от ' + baseWord + '). Кворум ' +
-            (pct >= thr ? '<strong>имеется</strong>' : '<span class="warn">отсутствует</span>') +
-            ' (порог — ' + money(thr) + ' %).';
+        /* Один состав голосующих: строка о кворуме, повестка и результаты.
+           Статья 42 Закона «О жилищных отношениях» разделяет собственников квартир
+           и нежилых помещений (управление домом) и собственников парковочных мест
+           и кладовок (их содержание) — поэтому составы считаются раздельно. */
+        function group(total, present, votesText, cfg) {
+          var pct = (!isNaN(total) && total > 0 && !isNaN(present)) ? present / total * 100 : NaN;
+          var rows = ROWS(votesText);
+
+          var quorumLine;
+          if (isNaN(pct)) {
+            quorumLine = 'Кворум: <span class="ph">___ %</span> — заполните ' + cfg.needText + '.';
+          } else {
+            quorumLine = (byUnits
+              ? 'Приняли участие собственники ' + n0(present) + ' ' + plural(present, cfg.objOne, cfg.objMany, cfg.objMany)
+              : 'Приняли участие собственники, обладающие ' + money(present) + ' м²') +
+              ' (' + pct.toFixed(2) + ' % от ' + cfg.baseWord + '). Кворум ' +
+              (pct >= thr ? '<strong>имеется</strong>' : '<span class="warn">отсутствует</span>') +
+              ' (порог — ' + money(thr) + ' %).';
+          }
+
+          var agenda = rows.length
+            ? '<ol>' + rows.map(function (r) { return '<li>' + esc(r[0] || '[вопрос]') + '</li>'; }).join('') + '</ol>'
+            : '<ol><li><span class="ph">[вопрос повестки дня]</span></li></ol>';
+
+          var results = rows.length
+            ? rows.map(function (r, i) {
+                var za = num(r[1]), pr = num(r[2]), vo = num(r[3]);
+                var sum = (isNaN(za) ? 0 : za) + (isNaN(pr) ? 0 : pr) + (isNaN(vo) ? 0 : vo);
+                var base = !isNaN(present) && present > 0 ? present : sum;
+                function cell(x) {
+                  if (isNaN(x)) return '<td class="num"><span class="ph">___</span></td><td class="num"><span class="ph">___</span></td>';
+                  return '<td class="num">' + fmtV(x) + '</td><td class="num">' +
+                    (base > 0 ? (x / base * 100).toFixed(2) + ' %' : '—') + '</td>';
+                }
+                var mismatch = '';
+                if (!isNaN(present) && present > 0 && sum > 0 && Math.abs(sum - present) > tol) {
+                  mismatch = '<p class="small warn">Внимание: сумма голосов по вопросу (' + fmtV(sum) +
+                    ' ' + unit + ') не совпадает с числом голосов участников (' + fmtV(present) + ' ' + unit +
+                    '). Разница ' + fmtV(sum - present) + ' ' + unit + '.</p>';
+                }
+                return '<h3>' + cfg.qPrefix + ' № ' + (i + 1) + '. ' + esc(r[0] || '[формулировка вопроса]') + '</h3>' +
+                  '<table><thead><tr><th>Результат голосования</th><th class="num">' +
+                  (byUnits ? 'Голосов' : 'Площадь, м²') + '</th><th class="num">Доля</th></tr></thead><tbody>' +
+                  '<tr><td>«За»</td>' + cell(za) + '</tr>' +
+                  '<tr><td>«Против»</td>' + cell(pr) + '</tr>' +
+                  '<tr><td>«Воздержался»</td>' + cell(vo) + '</tr>' +
+                  '<tr class="total"><td>Всего учтено</td><td class="num">' + fmtV(sum) + '</td><td class="num">' +
+                  (base > 0 ? (sum / base * 100).toFixed(2) + ' %' : '—') + '</td></tr>' +
+                  '</tbody></table>' + mismatch;
+              }).join('')
+            : '<p><span class="ph">[Заполните поле «' + cfg.emptyField + '»: вопрос | за | против | воздержался]</span></p>';
+
+          return { quorumLine: quorumLine, agenda: agenda, results: results, rows: rows };
         }
 
-        var rows = ROWS(f.votes);
-        var qHtml;
-        if (!rows.length) {
-          qHtml = '<p><span class="ph">[Заполните поле «Вопросы и голоса»: вопрос | за | против | воздержался]</span></p>';
-        } else {
-          qHtml = rows.map(function (r, i) {
-            var za = num(r[1]), pr = num(r[2]), vo = num(r[3]);
-            var sum = (isNaN(za) ? 0 : za) + (isNaN(pr) ? 0 : pr) + (isNaN(vo) ? 0 : vo);
-            var base = !isNaN(present) && present > 0 ? present : sum;
-            function cell(x) {
-              if (isNaN(x)) return '<td class="num"><span class="ph">___</span></td><td class="num"><span class="ph">___</span></td>';
-              return '<td class="num">' + fmtV(x) + '</td><td class="num">' +
-                (base > 0 ? (x / base * 100).toFixed(2) + ' %' : '—') + '</td>';
-            }
-            var mismatch = '';
-            if (!isNaN(present) && present > 0 && sum > 0 && Math.abs(sum - present) > (byUnits ? 0.5 : 0.01)) {
-              mismatch = '<p class="small warn">Внимание: сумма голосов по вопросу (' + fmtV(sum) +
-                ' ' + unit + ') не совпадает с числом голосов участников (' + fmtV(present) + ' ' + unit +
-                '). Разница ' + fmtV(sum - present) + ' ' + unit + '.</p>';
-            }
-            return '<h3>Вопрос № ' + (i + 1) + '. ' + esc(r[0] || '[формулировка вопроса]') + '</h3>' +
-              '<table><thead><tr><th>Результат голосования</th><th class="num">' +
-              (byUnits ? 'Голосов' : 'Площадь, м²') + '</th><th class="num">Доля</th></tr></thead><tbody>' +
-              '<tr><td>«За»</td>' + cell(za) + '</tr>' +
-              '<tr><td>«Против»</td>' + cell(pr) + '</tr>' +
-              '<tr><td>«Воздержался»</td>' + cell(vo) + '</tr>' +
-              '<tr class="total"><td>Всего учтено</td><td class="num">' + fmtV(sum) + '</td><td class="num">' +
-              (base > 0 ? (sum / base * 100).toFixed(2) + ' %' : '—') + '</td></tr>' +
-              '</tbody></table>' + mismatch;
-          }).join('');
+        var home = group(
+          byUnits ? (num(f.totalUnits) || num(p.units)) : (num(f.totalArea) || num(p.totalArea)),
+          byUnits ? num(f.presentCount) : num(f.presentArea),
+          f.votes,
+          {
+            baseWord: byUnits ? 'общего числа квартир и нежилых помещений' : 'общей полезной площади дома',
+            needText: byUnits ? 'количество помещений в доме и число участвовавших собственников' : 'общую площадь дома и площадь участников',
+            objOne: 'помещения', objMany: 'помещений',
+            qPrefix: 'Вопрос', emptyField: 'Вопросы и голоса'
+          });
+
+        var parkTotal = byUnits ? num(f.parkTotalUnits) : num(f.parkTotalArea);
+        var parkPresent = byUnits ? num(f.parkPresentCount) : num(f.parkPresentArea);
+        var hasPark = (!isNaN(parkTotal) && parkTotal > 0) || ROWS(f.parkVotes).length || L(f.parkDecisions).length;
+
+        var park = hasPark ? group(parkTotal, parkPresent, f.parkVotes, {
+          baseWord: byUnits ? 'общего числа парковочных мест и кладовок' : 'общей площади парковочных мест и кладовок',
+          needText: 'количество парковочных мест и кладовок и число участвовавших собственников',
+          objOne: 'объекта', objMany: 'объектов',
+          qPrefix: 'Вопрос', emptyField: 'Паркинг и кладовки: вопросы и голоса'
+        }) : null;
+
+        var h2 = hasPark
+          ? 'общего собрания собственников квартир, нежилых помещений, парковочных мест и кладовок'
+          : 'общего собрания собственников квартир и нежилых помещений';
+
+        var parkBlock = '';
+        if (hasPark) {
+          parkBlock =
+            '<h3>Раздел II. Вопросы содержания парковочных мест и кладовок</h3>' +
+            '<p>Вопросы настоящего раздела рассматриваются собственниками парковочных мест и кладовок. ' +
+            'Голоса собственников квартир и нежилых помещений по этим вопросам не учитываются.</p>' +
+            (num(f.parkTotalUnits) || !num(f.parkTotalArea)
+              ? '<p><strong>Всего парковочных мест и кладовок:</strong> ' + V(f.parkTotalUnits, '___') +
+                (num(f.parkTotalArea) ? ', общей площадью ' + fmt(f.parkTotalArea, 'м²') : '') + '<br>'
+              : '<p><strong>Общая площадь парковочных мест и кладовок:</strong> ' + fmt(f.parkTotalArea, 'м²') + '<br>') +
+            '<strong>Приняли участие:</strong> ' +
+            (isNaN(num(f.parkPresentCount))
+              ? '<span class="ph">___</span> собственников'
+              : n0(num(f.parkPresentCount)) + ' ' + plural(num(f.parkPresentCount), 'собственник', 'собственника', 'собственников')) + '</p>' +
+            '<p>' + park.quorumLine + '</p>' +
+            '<p><strong>Повестка дня раздела:</strong></p>' + park.agenda +
+            '<p><strong>Результаты голосования:</strong></p>' + park.results +
+            '<p><strong>Решили:</strong></p>' + OL(f.parkDecisions, '[формулировка решения]');
         }
 
         return HEAD(p) +
           '<h1>Протокол № ' + V(f.protocolNo) + '</h1>' +
-          '<h2>общего собрания собственников квартир и нежилых помещений</h2>' +
+          '<h2>' + h2 + '</h2>' +
           '<div class="row"><span>' + place(p, f) + '</span><span>' + D(f.meetingDate) + '</span></div>' +
           '<p><strong>Адрес дома:</strong> ' + V(p.address, '[адрес дома]') + '<br>' +
           '<strong>Место проведения:</strong> ' + V(f.meetingPlace, '[место проведения]') + '<br>' +
           '<strong>Форма голосования:</strong> ' + V(f.meetingForm, MEETING_FORMS[0]) + '<br>' +
           '<strong>Подсчёт голосов:</strong> ' + V(f.countBasis, 'по площади помещений') + '</p>' +
+          (hasPark ? '<h3>Раздел I. Вопросы управления объектом кондоминиума</h3>' +
+            '<p>Вопросы настоящего раздела рассматриваются собственниками квартир и нежилых помещений.</p>' : '') +
           '<p><strong>Общая полезная площадь дома:</strong> ' + fmt(f.totalArea || p.totalArea, 'м²') + '<br>' +
           '<strong>Всего помещений в доме (квартиры и нежилые):</strong> ' + V(f.totalUnits || p.units, '___') + '<br>' +
           '<strong>Приняли участие:</strong> ' +
           (isNaN(num(f.presentCount))
             ? '<span class="ph">___</span> собственников'
             : n0(num(f.presentCount)) + ' ' + plural(num(f.presentCount), 'собственник', 'собственника', 'собственников')) + '</p>' +
-          '<p>' + quorumLine + '</p>' +
+          '<p>' + home.quorumLine + '</p>' +
           '<p><strong>Председатель собрания:</strong> ' + V(f.chair || p.chairman, '[Ф.И.О.]') + '<br>' +
           '<strong>Секретарь собрания:</strong> ' + V(f.secretary, '[Ф.И.О.]') + '</p>' +
           '<p><strong>Счётная комиссия:</strong></p>' + UL(f.counters, '[Ф.И.О., кв. №]') +
-          '<h3>Повестка дня</h3>' +
-          (rows.length
-            ? '<ol>' + rows.map(function (r) { return '<li>' + esc(r[0] || '[вопрос]') + '</li>'; }).join('') + '</ol>'
-            : '<ol><li><span class="ph">[вопрос повестки дня]</span></li></ol>') +
-          '<h3>Результаты голосования</h3>' + qHtml +
+          '<h3>' + (hasPark ? 'Повестка дня раздела I' : 'Повестка дня') + '</h3>' + home.agenda +
+          '<h3>Результаты голосования</h3>' + home.results +
           '<h3>Решили</h3>' + OL(f.decisions, '[формулировка решения]') +
+          parkBlock +
           '<h3>Приложения</h3>' + OL(f.attachments, '[перечень приложений]') +
           '<div class="sign">' +
           SIGN('Председатель собрания', f.chair || p.chairman) +
@@ -685,15 +750,8 @@
       id: 'debt-notice',
       group: 'Взыскание и претензии',
       title: 'Уведомление о задолженности по взносам',
-      note: 'Досудебное уведомление. Итоговая сумма считается автоматически; сведения о задолженности передаются только самому собственнику. Взыскание возможно двумя путями — через нотариуса по исполнительной надписи или через суд.',
+      note: 'Досудебное уведомление. Итоговая сумма считается автоматически; сведения о задолженности передаются только самому собственнику.',
       fields: [
-        { id: 'nextStep', label: 'Что указать как следующий шаг', type: 'select',
-          options: [
-            'исполнительная надпись нотариуса',
-            'исполнительная надпись нотариуса, при невозможности — суд',
-            'обращение в суд'
-          ],
-          hint: 'Определяет предупреждение в конце уведомления' },
         { id: 'noticeNo', label: 'Исходящий номер' },
         { id: 'noticeDate', label: 'Дата уведомления', type: 'date' },
         { id: 'ownerName', label: 'Собственник, Ф.И.О.' },
@@ -705,48 +763,13 @@
           hint: 'Формат строки: вид взноса | сумма',
           placeholder: 'Взнос на содержание общего имущества | 84000\nВзнос на капитальный ремонт (сберегательный счёт) | 21000' },
         { id: 'penalty', label: 'Начисленная пеня, тенге', type: 'number' },
-        { id: 'payBefore', label: 'Срок погашения', type: 'date' },
-        { id: 'basisDoc', label: 'Чем утверждены взносы', placeholder: 'протокол собрания № 3 от 08.02.2026',
-          hint: 'Нотариус проверяет бесспорность задолженности по этому документу' }
+        { id: 'payBefore', label: 'Срок погашения', type: 'date' }
       ],
       render: function (c) {
         var p = c.p, f = c.f;
         var t = sumTable(f.items, 'Вид взноса (платежа)', '[вид взноса]');
         var pen = num(f.penalty);
         var grand = (isNaN(t.total) ? NaN : t.total + (isNaN(pen) ? 0 : pen));
-
-        var step = f.nextStep || 'исполнительная надпись нотариуса';
-        var org = V(p.orgForm, 'ОСИ');
-
-        /* Исполнительная надпись — внесудебный порядок взыскания взносов
-           (подпункт 6 пункта 2 статьи 92-1 Закона РК «О нотариате»). */
-        var notaryPara =
-          '<p>В случае непогашения задолженности в указанный срок ' + org +
-          ' вправе обратиться к нотариусу за совершением <strong>исполнительной надписи</strong> о взыскании ' +
-          'задолженности по взносам, определённым подпунктами 7), 8), 9), 10) и 11) пункта 5 статьи 42 Закона Республики Казахстан ' +
-          '«О жилищных отношениях», — на основании подпункта 6) пункта 2 статьи 92-1 Закона Республики Казахстан «О нотариате».</p>' +
-          '<p>Исполнительная надпись совершается нотариусом без обращения в суд, является исполнительным документом ' +
-          'и предъявляется к принудительному исполнению судебному исполнителю. Копия исполнительной надписи направляется ' +
-          'должнику нотариусом. Расходы по совершению исполнительной надписи и по её принудительному исполнению ' +
-          'относятся на должника.</p>' +
-          '<p>Основание начисления взносов: ' + V(f.basisDoc, '[протокол собрания, номер и дата]') + '.</p>';
-
-        var courtPara =
-          '<p>В случае непогашения задолженности в указанный срок ' + org +
-          ' вправе обратиться за её взысканием в судебном порядке с отнесением судебных расходов на должника.</p>';
-
-        var bothPara = notaryPara +
-          '<p>При наличии спора о размере задолженности и невозможности совершения исполнительной надписи ' +
-          'взыскание производится в судебном порядке с отнесением судебных расходов на должника.</p>';
-
-        var onlyCourt = step.indexOf('обращение в суд') === 0;
-        var warnPara = onlyCourt ? courtPara
-          : (step.indexOf('при невозможности') > -1 ? bothPara : notaryPara);
-
-        var disputeLine = onlyCourt
-          ? '.'
-          : ' <strong>до истечения указанного срока</strong>: возражения снимают бесспорность задолженности, ' +
-            'и вопрос будет решаться в судебном порядке.';
 
         return HEAD(p) +
           '<div class="head-right"><p>' + V(f.ownerName, '[Ф.И.О. собственника]') + '<br>' +
@@ -768,10 +791,10 @@
           'ИИК (текущий счёт): ' + V(p.iik) + '<br>' +
           'ИИК (сберегательный счёт): ' + V(p.iikSave) + '<br>' +
           'Банк: ' + V(p.bank) + '</p>' +
-          warnPara +
+          '<p>В случае непогашения задолженности в указанный срок ' + V(p.orgForm, 'ОСИ') +
+          ' вправе обратиться за её взысканием в судебном порядке с отнесением судебных расходов на должника.</p>' +
           '<p>Если задолженность уже погашена либо вы не согласны с расчётом — обратитесь по адресу ' +
-          V(p.office, '[место приёма]') + ' или по телефону ' + V(p.phone, '[телефон]') +
-          ' для сверки расчётов' + disputeLine + '</p>' +
+          V(p.office, '[место приёма]') + ' или по телефону ' + V(p.phone, '[телефон]') + ' для сверки расчётов.</p>' +
           '<div class="sign">' + SIGN('Председатель ' + V(p.orgForm, 'ОСИ'), p.chairman) + '</div>';
       }
     },
